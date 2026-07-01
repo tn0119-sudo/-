@@ -163,7 +163,12 @@ textarea{resize:vertical;min-height:60px}
 .setcard{background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:13px;margin-bottom:12px}
 .setcard h3{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .set-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
-.set-item{display:flex;align-items:flex-start;gap:6px;padding:5px 8px;border-radius:6px;background:var(--bg)}
+.set-item{display:flex;align-items:flex-start;gap:6px;padding:5px 8px;border-radius:6px;background:var(--bg);transition:box-shadow .1s}
+.set-item[draggable=true]{cursor:grab}
+.set-item[draggable=true]:active{cursor:grabbing}
+.set-item.drag-over{box-shadow:0 -2px 0 var(--ac);background:var(--ac2)}
+.set-item.dragging{opacity:.4}
+.drag-handle{color:var(--mu);cursor:grab;padding:0 2px;font-size:14px;flex-shrink:0;user-select:none;line-height:1.6}
 .set-item-name{flex:1;font-size:12px;line-height:1.4}
 .set-add{display:flex;gap:6px}
 .set-add textarea{flex:1;min-height:38px}
@@ -354,10 +359,14 @@ textarea{resize:vertical;min-height:60px}
     <div class="mb">
       <div class="fg"><div class="fl">グループ名 <em>（例：月曜AM、火曜PM）</em></div><input type="text" id="g-name" placeholder="月曜AM"></div>
       <div class="fg"><div class="fl">カラー</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#be185d'].map((c,i)=>
-            `<label style="cursor:pointer"><input type="radio" name="gc" value="${c}" ${i===0?'checked':''}> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${c};vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>`
-          ).join('')}
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="g-color-swatches">
+          <label style="cursor:pointer"><input type="radio" name="gc" value="#2563eb" checked> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#2563eb;vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>
+          <label style="cursor:pointer"><input type="radio" name="gc" value="#16a34a"> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#16a34a;vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>
+          <label style="cursor:pointer"><input type="radio" name="gc" value="#d97706"> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#d97706;vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>
+          <label style="cursor:pointer"><input type="radio" name="gc" value="#dc2626"> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#dc2626;vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>
+          <label style="cursor:pointer"><input type="radio" name="gc" value="#7c3aed"> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#7c3aed;vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>
+          <label style="cursor:pointer"><input type="radio" name="gc" value="#0891b2"> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#0891b2;vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>
+          <label style="cursor:pointer"><input type="radio" name="gc" value="#be185d"> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#be185d;vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>
         </div>
       </div>
       <div class="fg"><div class="fl">この曜日の標準利用時間帯</div>
@@ -603,11 +612,13 @@ function renderSB() {
     html+='<div class="sb-lbl">グループ</div>';
     db.groups.forEach(g=>{
       const members=(g.members||[]).map(uid=>allUsers.find(u=>u.id===uid)).filter(Boolean);
-      (g.members||[]).forEach(uid=>inGrp.add(uid)); // 退会者も「所属済み」扱いにして未グループへ二重表示しない
+      (g.members||[]).forEach(uid=>inGrp.add(uid));
       const doneN=members.filter(u=>!u.retired&&todayRec(u.id)).length;
       const badge=doneN?`<span style="font-size:9px;background:var(--gn);color:#fff;border-radius:100px;padding:1px 5px">${doneN}</span>`:'';
-      html+=`<div class="grp open">
-        <div class="grp-hd" onclick="this.closest('.grp').classList.toggle('open')">
+      // 現在選択中の利用者がいるグループだけ初期表示で開く
+      const hasActive=members.some(u=>u.id===curUser);
+      html+=`<div class="grp ${hasActive?'open':''}" data-grp-id="${g.id}">
+        <div class="grp-hd" onclick="toggleGrpAccordion(this)">
           <div class="grp-dot" style="background:${g.color}"></div>
           <div class="grp-nm">${g.name}${badge}</div>
           <span class="grp-arrow">▶</span>
@@ -631,6 +642,15 @@ function renderSB() {
   }
   if(!allUsers.length) html='<div style="padding:10px 6px;font-size:11px;color:var(--mu)">利用者未登録</div>';
   body.innerHTML=html;
+}
+
+function toggleGrpAccordion(hdEl) {
+  const clicked=hdEl.closest('.grp');
+  const isOpen=clicked.classList.contains('open');
+  // 全グループを閉じる
+  document.querySelectorAll('#sb-body .grp').forEach(g=>g.classList.remove('open'));
+  // 閉じていたものをクリックした場合だけ開く（開いていたものは閉じたまま）
+  if(!isOpen) clicked.classList.add('open');
 }
 
 // ══════════════════════════════════════════════
@@ -1064,9 +1084,14 @@ function renderSettings() {
 
     <!-- 個別メニュー -->
     <div class="setcard">
-      <h3>個別メニュー項目</h3>
-      <div class="set-list">
-        ${(cfg.menuItems||[]).map((m,i)=>`<div class="set-item">
+      <h3>個別メニュー項目 <span style="font-size:10px;font-weight:400;color:var(--mu)">☰ ドラッグで並べ替え可</span></h3>
+      <div class="set-list" id="menu-sort-list">
+        ${(cfg.menuItems||[]).map((m,i)=>`<div class="set-item" draggable="true" data-id="${m.id}"
+          ondragstart="dragStart(event,'${m.id}')"
+          ondragover="dragOver(event)"
+          ondragleave="dragLeave(event)"
+          ondrop="dragDrop(event,'menu')">
+          <span class="drag-handle">☰</span>
           <span class="set-item-name">${m.name}</span>
           <button class="btn br bxs" onclick="delMenuItem('${m.id}')">削除</button>
         </div>`).join('')}
@@ -1178,6 +1203,60 @@ function addMenuItem() {
 function delMenuItem(id) {
   cfg.menuItems=cfg.menuItems.filter(m=>m.id!==id);
   saveLocal(); renderSettings(); gas('deleteMenuItem',{id}); toast('削除しました');
+}
+
+// ── ドラッグ＆ドロップ並べ替え ──────────────────────────────
+let _dragId=null;
+function dragStart(e, id) {
+  _dragId=id;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+function dragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  // 自分自身の上でなければハイライト
+  const el=e.currentTarget;
+  if(el.dataset.id!==_dragId) el.classList.add('drag-over');
+}
+function dragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function dragDrop(e, listKey) {
+  e.preventDefault();
+  const toId=e.currentTarget.dataset.id;
+  e.currentTarget.classList.remove('drag-over');
+  document.querySelectorAll('.set-item.dragging').forEach(el=>el.classList.remove('dragging'));
+  if(!_dragId || _dragId===toId) { _dragId=null; return; }
+
+  if(listKey==='menu') {
+    const arr=cfg.menuItems;
+    const fromIdx=arr.findIndex(m=>m.id===_dragId);
+    const toIdx=arr.findIndex(m=>m.id===toId);
+    if(fromIdx<0||toIdx<0) { _dragId=null; return; }
+    // 並べ替え
+    const [moved]=arr.splice(fromIdx,1);
+    arr.splice(toIdx,0,moved);
+    cfg.menuItems=arr;
+    saveLocal();
+    renderSettings();
+    saveMenuOrder();
+  }
+  _dragId=null;
+}
+
+// 並べ替え後の順序をGASに保存（全件upsert）
+let _menuOrderTimer=null;
+function saveMenuOrder() {
+  // 連続操作のdebounce（1秒後にまとめて送信）
+  clearTimeout(_menuOrderTimer);
+  _menuOrderTimer=setTimeout(async ()=>{
+    // GASのmenu_itemsシートをsortOrder付きで全件上書き
+    for(let i=0;i<cfg.menuItems.length;i++){
+      await gas('upsertMenuItem',{item:{...cfg.menuItems[i],sortOrder:i}});
+    }
+    toast('並び順を保存しました');
+  },1000);
 }
 function addTemplate() {
   const ta=G('si-tmpl'); const v=ta.value.trim(); if(!v) return;
@@ -1516,6 +1595,59 @@ function toast(msg){const el=document.createElement('div');el.className='toast';
 function showM(id){G(id).classList.remove('hidden');}
 function closeM(id){G(id).classList.add('hidden');}
 document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeM(o.id);}));
+
+
+// ══════════════════════════════════════════════
+// タッチ操作でのドラッグ＆ドロップ対応
+// （タブレット・スマホでの並べ替えを可能にする）
+// ══════════════════════════════════════════════
+(function(){
+  let touchDragging=null, touchClone=null, lastOver=null;
+  function closest(el,sel){while(el){if(el.matches&&el.matches(sel))return el;el=el.parentElement;}return null;}
+
+  document.addEventListener('touchstart',function(e){
+    const handle=closest(e.target,'.drag-handle');
+    if(!handle)return;
+    const item=closest(handle,'.set-item[draggable]');
+    if(!item)return;
+    e.preventDefault();
+    touchDragging=item;
+    touchDragging.classList.add('dragging');
+    _dragId=item.dataset.id;
+    // 視覚的なクローン
+    touchClone=item.cloneNode(true);
+    touchClone.style.cssText=`position:fixed;opacity:.7;pointer-events:none;z-index:9999;width:${item.offsetWidth}px;left:${item.getBoundingClientRect().left}px;top:${item.getBoundingClientRect().top}px;background:var(--ac2);border:1.5px solid var(--ac);border-radius:8px;`;
+    document.body.appendChild(touchClone);
+  },{passive:false});
+
+  document.addEventListener('touchmove',function(e){
+    if(!touchDragging)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    touchClone.style.left=(t.clientX-touchClone.offsetWidth/2)+'px';
+    touchClone.style.top=(t.clientY-20)+'px';
+    // 下にある要素を探す
+    touchClone.style.display='none';
+    const below=document.elementFromPoint(t.clientX,t.clientY);
+    touchClone.style.display='';
+    const overItem=closest(below,'.set-item[draggable]');
+    if(lastOver&&lastOver!==touchDragging) lastOver.classList.remove('drag-over');
+    if(overItem&&overItem!==touchDragging){overItem.classList.add('drag-over');lastOver=overItem;}
+  },{passive:false});
+
+  document.addEventListener('touchend',function(e){
+    if(!touchDragging)return;
+    if(touchClone){touchClone.remove();touchClone=null;}
+    touchDragging.classList.remove('dragging');
+    if(lastOver&&lastOver!==touchDragging){
+      const toId=lastOver.dataset.id;
+      lastOver.classList.remove('drag-over');
+      // リストキーを判断（menu-sort-list内かどうか）
+      if(closest(touchDragging,'#menu-sort-list')) dragDrop({preventDefault:()=>{},currentTarget:{dataset:{id:toId},classList:{remove:()=>{}}}},'menu');
+    }
+    touchDragging=null; lastOver=null; _dragId=null;
+  });
+})();
 
 // ══════════════════════════════════════════════
 // PWA
