@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DS記録">
+<title>デイサービス記録管理</title>
+<style>
+:root{
+  --bg:#f0f2f5;--sur:#fff;--sur2:#f8f9fb;--brd:#e2e6ea;--brd2:#c9d0d8;
+  --tx:#1a1d23;--mu:#6b7280;
+  --ac:#2563eb;--ac2:#eff6ff;--ac3:#bfdbfe;
+  --gn:#16a34a;--gn2:#f0fdf4;--gn3:#bbf7d0;
+  --rd:#dc2626;--rd2:#fef2f2;
+  --am:#d97706;--am2:#fffbeb;--am3:#fde68a;
+  --r:8px;--sh:0 1px 4px rgba(0,0,0,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI','Noto Sans JP',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.5}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* sidebar */
+.sb{width:230px;background:var(--sur);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sb-head{padding:12px;border-bottom:1px solid var(--brd)}
+.sb-head h1{font-size:12px;font-weight:700}
+.sb-head p{font-size:10px;color:var(--mu);margin-top:1px}
+.sync-row{display:flex;align-items:center;gap:4px;margin-top:5px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#d1d5db;flex-shrink:0;transition:background .3s}
+.sync-txt{font-size:10px;color:var(--mu)}
+.sb-body{flex:1;overflow-y:auto;padding:6px}
+.sb-lbl{font-size:9px;font-weight:700;color:var(--mu);letter-spacing:.08em;text-transform:uppercase;padding:8px 6px 3px;display:flex;align-items:center;justify-content:space-between}
+.grp{margin-bottom:4px;border-radius:var(--r);overflow:hidden;border:1px solid var(--brd)}
+.grp-hd{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--sur2);cursor:pointer;user-select:none}
+.grp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.grp-nm{font-size:11px;font-weight:700;flex:1}
+.grp-arrow{font-size:10px;color:var(--mu);transition:transform .15s}
+.grp.open .grp-arrow{transform:rotate(90deg)}
+.grp-bd{display:none;padding:3px 4px;background:var(--sur)}
+.grp.open .grp-bd{display:block}
+.uitem{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;cursor:pointer;transition:background .1s}
+.uitem:hover{background:var(--bg)}.uitem.active{background:var(--ac2)}
+.uitem.active .unm{color:var(--ac);font-weight:600}
+.uitem.today-done{background:linear-gradient(to right,#f0fdf4,#fff)}
+.uav{width:24px;height:24px;border-radius:50%;background:var(--ac2);border:1px solid var(--ac3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--ac);flex-shrink:0}
+.unm{font-size:12px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tdot{width:7px;height:7px;border-radius:50%;background:var(--gn);flex-shrink:0;box-shadow:0 0 0 2px #fff}
+.sb-foot{padding:10px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:5px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:6px 12px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .12s;white-space:nowrap}
+.btn svg{width:13px;height:13px;flex-shrink:0}
+.bp{background:var(--ac);color:#fff;border-color:var(--ac)}.bp:hover{background:#1d4ed8}
+.bs{background:#fff;color:var(--tx);border-color:var(--brd2)}.bs:hover{background:var(--bg)}
+.bg{background:var(--gn2);color:var(--gn);border-color:var(--gn3)}.bg:hover{background:#dcfce7}
+.br{background:var(--rd2);color:var(--rd);border-color:#fca5a5}.br:hover{background:#fee2e2}
+.ba{background:var(--am2);color:var(--am);border-color:var(--am3)}.ba:hover{background:#fef3c7}
+.bfull{width:100%}.bxs{padding:3px 8px;font-size:11px}
+.ibt{width:28px;height:28px;border-radius:var(--r);border:1px solid var(--brd);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--mu);transition:all .1s;flex-shrink:0}
+.ibt:hover{background:var(--bg);color:var(--tx)}
+.ibt:disabled{opacity:.4;cursor:default}
+
+/* main layout */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.view-panel{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.hidden{display:none!important}
+.topbar{background:var(--sur);border-bottom:1px solid var(--brd);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0}
+.tbl{display:flex;align-items:center;gap:8px}
+.tbr{display:flex;align-items:center;gap:6px}
+.bc{font-size:12px;color:var(--mu)}.bc span{color:var(--tx);font-weight:600}
+.mnav{display:flex;align-items:center;gap:6px}
+.mlbl{font-size:13px;font-weight:700;min-width:80px;text-align:center}
+.tabbar{display:flex;background:var(--sur);border-bottom:1px solid var(--brd);flex-shrink:0;padding:0 16px}
+.tab{padding:9px 12px;font-size:12px;font-weight:500;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;transition:all .1s}
+.tab:hover{color:var(--tx)}.tab.active{color:var(--ac);border-bottom-color:var(--ac)}
+.sumbar{display:flex;gap:10px;padding:8px 16px;background:var(--sur);border-bottom:1px solid var(--brd);flex-shrink:0;flex-wrap:wrap}
+.si{text-align:center}.sn{font-size:17px;font-weight:700;line-height:1}.sl{font-size:10px;color:var(--mu);margin-top:1px}
+.sdiv{width:1px;background:var(--brd)}
+.sc-bar{padding:6px 16px;background:var(--sur2);border-bottom:1px solid var(--brd);display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0;align-items:center}
+.sc-lbl{font-size:10px;font-weight:600;color:var(--mu);white-space:nowrap;margin-right:2px}
+.sc-slot{font-size:11px;padding:3px 9px;border-radius:100px;border:1px solid var(--brd);background:#fff;cursor:pointer;color:var(--mu);transition:all .1s;display:flex;flex-direction:column;align-items:center;line-height:1.2}
+.sc-slot:hover{border-color:var(--ac);color:var(--ac);background:var(--ac2)}
+.sc-slot.has{background:var(--gn2);border-color:var(--gn3);color:var(--gn);font-weight:600}
+.sc-day{font-size:9px}
+.content{padding:14px;flex:1;overflow-y:auto}
+
+/* record cards */
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.rcard{background:var(--sur);border:1px solid var(--brd);border-radius:10px;overflow:hidden;transition:box-shadow .1s}
+.rcard:hover{box-shadow:var(--sh)}
+.rch{padding:8px 12px;background:var(--sur2);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between}
+.rdt{font-size:12px;font-weight:700}.rdt2{font-size:10px;color:var(--mu);margin-top:1px}
+.rcb{padding:10px 12px;display:grid;gap:7px}
+.vrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.vi{text-align:center}.vl{font-size:9px;color:var(--mu)}.vv{font-size:13px;font-weight:700;line-height:1.1}.vu{font-size:9px;color:var(--mu)}
+.mtags{display:flex;flex-wrap:wrap;gap:3px}
+.mtag{font-size:10px;padding:2px 6px;border-radius:100px;background:var(--ac2);color:var(--ac);border:1px solid var(--ac3)}
+.notetx{font-size:11px;color:var(--mu);border-top:1px solid var(--brd);padding-top:6px;line-height:1.5}
+.rcacts{display:flex;gap:5px;padding:7px 12px;border-top:1px solid var(--brd);background:var(--sur2)}
+.addcard{background:#fff;border:1.5px dashed var(--brd2);border-radius:10px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:var(--mu);transition:all .15s;min-height:100px}
+.addcard:hover{border-color:var(--ac);color:var(--ac);background:var(--ac2)}
+.addcard svg{width:18px;height:18px}
+
+/* empty */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--mu);text-align:center;padding:40px}
+.empty svg{width:44px;height:44px;opacity:.2}
+.empty h3{font-size:15px;font-weight:500;color:var(--tx)}.empty p{font-size:12px}
+
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.18)}
+.modal.wide{max-width:680px}
+.mh{padding:14px 18px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.mh h2{font-size:14px;font-weight:700}
+.mb{padding:16px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:13px}
+.mf{padding:12px 18px;border-top:1px solid var(--brd);display:flex;justify-content:flex-end;gap:7px;flex-shrink:0}
+
+/* form */
+.fs{display:flex;flex-direction:column;gap:8px}
+.fst{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mu);padding-bottom:3px;border-bottom:1px solid var(--brd)}
+.fr{display:grid;gap:8px}.fr2{grid-template-columns:1fr 1fr}.fr3{grid-template-columns:1fr 1fr 1fr}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fl{font-size:11px;font-weight:600;color:var(--tx)}.fl em{font-weight:400;color:var(--mu)}
+input[type=text],input[type=date],input[type=number],textarea,select{
+  border:1px solid var(--brd);border-radius:var(--r);padding:6px 9px;font-size:12px;color:var(--tx);
+  background:#fff;width:100%;outline:none;transition:border-color .1s;font-family:inherit
+}
+input:focus,textarea:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+textarea{resize:vertical;min-height:60px}
+.tsel{display:flex;gap:8px}
+.tsl{flex:1;padding:8px;border-radius:var(--r);border:1.5px solid var(--brd);cursor:pointer;text-align:center;transition:all .12s}
+.tsl:hover{border-color:var(--ac);background:var(--ac2)}
+.tsl.on{border-color:var(--ac);background:var(--ac2);color:var(--ac)}
+.tsl .tl{font-size:10px;color:var(--mu);font-weight:600}
+.tsl.on .tl{color:var(--ac)}.tsl .tt{font-size:12px;font-weight:700;margin-top:1px}
+
+/* menu checkboxes */
+.cbgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.cbi{display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 7px;border-radius:6px;border:1px solid var(--brd);transition:all .1s;user-select:none}
+.cbi:hover{border-color:var(--ac);background:var(--ac2)}.cbi.on{border-color:var(--ac);background:var(--ac2)}
+.cbi input{width:13px;height:13px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
+.cbi label{font-size:11px;cursor:pointer}.cbi.on label{color:var(--ac);font-weight:600}
+
+/* users table */
+.utbl{background:var(--sur);border:1px solid var(--brd);border-radius:10px;overflow:hidden}
+.urow{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-bottom:1px solid var(--brd);flex-wrap:wrap}
+.urow:last-child{border-bottom:none}.urow:hover{background:var(--bg)}
+.urow-name{font-size:13px;font-weight:500}.urow-meta{font-size:11px;color:var(--mu)}
+
+/* groups management */
+.gmc{background:var(--sur);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.gmch{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--sur2);border-bottom:1px solid var(--brd)}
+.gmc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.gmc-name{font-size:13px;font-weight:700;flex:1}
+.gmc-members{padding:8px 12px;display:flex;flex-wrap:wrap;gap:5px;min-height:38px}
+.mchip{display:inline-flex;align-items:center;gap:4px;background:var(--ac2);border:1px solid var(--ac3);border-radius:100px;padding:3px 8px;font-size:11px;color:var(--ac);font-weight:500}
+.mchip button{background:none;border:none;cursor:pointer;color:var(--ac);font-size:13px;line-height:1;padding:0 0 0 2px}
+.gmc-add{display:flex;gap:6px;padding:0 12px 9px}
+
+/* settings */
+.setcard{background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:13px;margin-bottom:12px}
+.setcard h3{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.set-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.set-item{display:flex;align-items:flex-start;gap:6px;padding:5px 8px;border-radius:6px;background:var(--bg)}
+.set-item-name{flex:1;font-size:12px;line-height:1.4}
+.set-add{display:flex;gap:6px}
+.set-add textarea{flex:1;min-height:38px}
+.set-add input{flex:1}
+
+/* pdf */
+.pdf-panel{background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:13px;margin-bottom:10px}
+.pdf-panel h3{font-size:12px;font-weight:700;margin-bottom:8px}
+.pdf-opts{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.pg-bar{height:4px;background:var(--brd);border-radius:2px;overflow:hidden;margin-top:6px}
+.pg-fill{height:100%;background:var(--ac);border-radius:2px;transition:width .2s}
+
+/* badge */
+.badge{font-size:10px;padding:2px 7px;border-radius:100px;font-weight:600}
+.bdg{background:var(--gn2);color:var(--gn);border:1px solid var(--gn3)}
+
+/* gas status badge */
+.gas-badge{font-size:10px;padding:1px 6px;border-radius:100px;font-weight:600}
+
+/* toast */
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1d23;color:#fff;padding:9px 14px;border-radius:var(--r);font-size:12px;z-index:999;box-shadow:var(--sh);animation:tin .2s ease}
+@keyframes tin{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mt8{margin-top:8px}.flex{display:flex}.gap6{gap:6px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sb">
+  <div class="sb-head">
+    <h1>デイサービス記録</h1>
+    <p id="sb-today"></p>
+    <div class="sync-row">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span class="sync-txt" id="sync-txt">未設定</span>
+    </div>
+  </div>
+  <div class="sb-body" id="sb-body"></div>
+  <div class="sb-foot">
+    <button class="btn bp bfull bxs" onclick="openAddUser()">＋ 新規利用者追加</button>
+    <button class="btn bs bfull bxs" onclick="showV('groups')">曜日グループ管理</button>
+    <button class="btn bs bfull bxs" onclick="showV('users')">利用者管理</button>
+    <button class="btn bs bfull bxs" onclick="showV('settings')">⚙ 各種設定</button>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+  <div class="empty" id="v-welcome">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    <h3>利用者を選択してください</h3>
+    <p>左メニューから利用者を選ぶか<br>「⚙ 各種設定」でGAS連携を設定してください</p>
+  </div>
+
+  <!-- record -->
+  <div id="v-record" class="hidden view-panel">
+    <div class="topbar">
+      <div class="tbl"><div class="bc">利用者 › <span id="cur-uname">—</span></div></div>
+      <div class="tbr">
+        <div class="mnav">
+          <button class="ibt" onclick="chMonth(-1)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <div class="mlbl" id="mlbl">—</div>
+          <button class="ibt" onclick="chMonth(1)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+        <button class="btn bp bxs" onclick="openAddRecord()">＋ 記録追加</button>
+      </div>
+    </div>
+    <div class="sumbar" id="sumbar"></div>
+    <div class="sc-bar" id="sc-bar"></div>
+    <div class="tabbar">
+      <div class="tab active" onclick="switchTab('recs',this)">記録一覧</div>
+      <div class="tab" onclick="switchTab('pdf',this)">PDF出力</div>
+    </div>
+    <div class="content" id="tab-recs"><div class="rgrid" id="rgrid"></div></div>
+    <div class="content hidden" id="tab-pdf">
+      <div class="pdf-panel">
+        <h3>この利用者のPDF出力</h3>
+        <div class="pdf-opts">
+          <div class="fg"><div class="fl">対象期間</div>
+            <select id="pdf-period"><option value="month">この月</option><option value="year">今年1年分</option></select>
+          </div>
+          <div class="fg"><div class="fl">1ページの日数</div>
+            <select id="pdf-pp"><option value="6">6日/ページ</option><option value="4">4日/ページ</option><option value="3">3日/ページ</option></select>
+          </div>
+          <button class="btn bp" onclick="doPDF(false)">PDFを出力</button>
+        </div>
+      </div>
+      <div class="pdf-panel">
+        <h3>全利用者 一括PDF出力（年間）</h3>
+        <div style="font-size:12px;color:var(--mu);margin-bottom:8px">登録中の全利用者の記録を年間でまとめてPDF出力します。</div>
+        <div class="pdf-opts">
+          <div class="fg"><div class="fl">対象年</div><select id="pdf-all-year"></select></div>
+          <div class="fg"><div class="fl">1ページの日数</div>
+            <select id="pdf-all-pp"><option value="6">6日/ページ</option><option value="4">4日/ページ</option><option value="3">3日/ページ</option></select>
+          </div>
+          <button class="btn ba" onclick="doPDF(true)">全利用者PDF出力</button>
+        </div>
+      </div>
+      <div class="pdf-panel" id="archive-view-panel">
+        <h3>🗄 過去年データを見る（アーカイブ閲覧）</h3>
+        <p style="font-size:11px;color:var(--mu);margin-bottom:8px">
+          年次アーカイブ済みの記録は普段の一覧には出てきません。ここで年を選ぶと、
+          その年の記録をこの利用者分だけ呼び出して確認・PDF出力できます。
+        </p>
+        <div class="pdf-opts">
+          <div class="fg"><div class="fl">アーカイブ年を選択</div><select id="archive-view-year"><option value="">読み込み中…</option></select></div>
+          <button class="btn bs" onclick="loadArchiveView()">この年のデータを見る</button>
+        </div>
+        <div id="archive-view-result" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- groups -->
+  <div id="v-groups" class="hidden view-panel">
+    <div class="topbar">
+      <div class="tbl"><div class="bc"><span>曜日グループ管理</span></div></div>
+      <div class="tbr"><button class="btn bp bxs" onclick="openAddGroup()">＋ グループ追加</button></div>
+    </div>
+    <div class="content" style="overflow-y:auto;flex:1">
+      <div id="grp-mgmt"></div>
+    </div>
+  </div>
+
+  <!-- users -->
+  <div id="v-users" class="hidden view-panel">
+    <div class="topbar">
+      <div class="tbl"><div class="bc"><span>利用者管理</span></div></div>
+      <div class="tbr"><button class="btn bp bxs" onclick="openAddUser()">＋ 新規追加</button></div>
+    </div>
+    <div class="content" style="overflow-y:auto;flex:1">
+      <div class="utbl" id="utbl"></div>
+    </div>
+  </div>
+
+  <!-- settings -->
+  <div id="v-settings" class="hidden view-panel">
+    <div class="topbar">
+      <div class="tbl"><div class="bc"><span>各種設定</span></div></div>
+      <div class="tbr">
+        <button class="btn bp bxs" id="btn-sync" onclick="syncNow(false)">☁ 今すぐ同期</button>
+        <button class="btn bs bxs" onclick="exportJSON()">JSONバックアップ</button>
+        <button class="btn bs bxs" onclick="G('imp-f').click()">JSONから復元</button>
+        <input type="file" id="imp-f" accept=".json" class="hidden" onchange="importJSON(event)">
+      </div>
+    </div>
+    <div class="content" style="overflow-y:auto;flex:1" id="settings-content"></div>
+  </div>
+
+</main>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Add User -->
+<div class="ov hidden" id="m-user">
+  <div class="modal">
+    <div class="mh"><h2 id="m-user-t">新規利用者追加</h2><button class="ibt" onclick="closeM('m-user')">✕</button></div>
+    <div class="mb">
+      <div class="fr fr2">
+        <div class="fg"><div class="fl">氏名 <em>（必須）</em></div><input type="text" id="u-name" placeholder="山田 花子"></div>
+        <div class="fg"><div class="fl">読み仮名</div><input type="text" id="u-kana" placeholder="やまだ はなこ"></div>
+      </div>
+      <div class="fr fr2">
+        <div class="fg"><div class="fl">生年月日</div><input type="date" id="u-dob"></div>
+        <div class="fg"><div class="fl">介護度</div>
+          <select id="u-care"><option value="">選択</option><option>要支援1</option><option>要支援2</option><option>要介護1</option><option>要介護2</option><option>要介護3</option><option>要介護4</option><option>要介護5</option></select>
+        </div>
+      </div>
+      <div class="fg" id="u-retired-row" style="display:none">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px;border:1px solid var(--brd);border-radius:6px;background:var(--sur2)">
+          <input type="checkbox" id="u-retired" style="width:15px;height:15px">
+          <span style="font-size:12px;font-weight:600">この利用者を退会済みにする</span>
+        </label>
+        <p style="font-size:10px;color:var(--mu);margin-top:3px">チェックすると一覧から基本非表示になります。各種設定の「退会者も表示」で再表示・復帰できます。</p>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-user')">キャンセル</button><button class="btn bp" onclick="saveUser()">保存</button></div>
+  </div>
+</div>
+
+<!-- Add Group -->
+<div class="ov hidden" id="m-group">
+  <div class="modal">
+    <div class="mh"><h2 id="m-grp-t">グループ追加</h2><button class="ibt" onclick="closeM('m-group')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><div class="fl">グループ名 <em>（例：月曜AM、火曜PM）</em></div><input type="text" id="g-name" placeholder="月曜AM"></div>
+      <div class="fg"><div class="fl">カラー</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#be185d'].map((c,i)=>
+            `<label style="cursor:pointer"><input type="radio" name="gc" value="${c}" ${i===0?'checked':''}> <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${c};vertical-align:middle;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span></label>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="fg"><div class="fl">この曜日の標準利用時間帯</div>
+        <select id="g-slot"><option value="am">午前</option><option value="pm">午後</option><option value="">指定なし</option></select>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-group')">キャンセル</button><button class="btn bp" onclick="saveGroup()">保存</button></div>
+  </div>
+</div>
+
+<!-- Add Record -->
+<div class="ov hidden" id="m-rec">
+  <div class="modal wide">
+    <div class="mh"><h2 id="m-rec-t">記録を追加</h2><button class="ibt" onclick="closeM('m-rec')">✕</button></div>
+    <div class="mb">
+      <div class="fs">
+        <div class="fst">基本情報</div>
+        <div class="fr fr2">
+          <div class="fg"><div class="fl">利用日</div>
+            <div class="flex gap6"><input type="date" id="r-date" style="flex:1"><button class="btn bs bxs" onclick="setToday()">今日</button></div>
+          </div>
+          <div class="fg"><div class="fl">利用時間</div>
+            <div class="tsel">
+              <div class="tsl" id="ts-am" onclick="selSlot('am')"><div class="tl">午前</div><div class="tt" id="ts-am-t">—</div></div>
+              <div class="tsl" id="ts-pm" onclick="selSlot('pm')"><div class="tl">午後</div><div class="tt" id="ts-pm-t">—</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="fs">
+        <div class="fst">バイタルサイン</div>
+        <div class="fr fr3">
+          <div class="fg"><div class="fl">収縮期血圧 <em>mmHg</em></div><input type="number" id="r-bps" placeholder="120"></div>
+          <div class="fg"><div class="fl">拡張期血圧 <em>mmHg</em></div><input type="number" id="r-bpd" placeholder="80"></div>
+          <div class="fg"><div class="fl">脈拍 <em>回/分</em></div><input type="number" id="r-pulse" placeholder="72"></div>
+        </div>
+        <div class="fr fr2">
+          <div class="fg"><div class="fl">体温 <em>℃</em></div><input type="number" id="r-temp" placeholder="36.5" step="0.1"></div>
+        </div>
+      </div>
+      <div class="fs">
+        <div class="fst">レッドコード</div>
+        <div class="fr fr2">
+          <div class="fg"><div class="fl">実施者</div><select id="r-staff"><option value="">選択なし</option></select></div>
+          <div class="fg"><div class="fl">実施時間</div><input type="text" id="r-rctime" value="30分"></div>
+        </div>
+      </div>
+      <div class="fs">
+        <div class="fst">個別メニュー</div>
+        <div class="cbgrid" id="menu-cbs"></div>
+        <div class="fg mt8"><div class="fl">実施時間</div><input type="text" id="r-mtime" value="90分"></div>
+      </div>
+      <div class="fs">
+        <div class="fst">経過観察・備考</div>
+        <div class="fg">
+          <div class="fl">経過観察 <em>（定型文選択または直接入力）</em></div>
+          <select id="r-tmpl" onchange="applyTmpl()" style="margin-bottom:5px"><option value="">— 定型文を選択 —</option></select>
+          <textarea id="r-notes" placeholder="利用中の様子・特記事項など"></textarea>
+        </div>
+        <div class="fg"><div class="fl">備考欄</div><textarea id="r-memo" placeholder="備考・連絡事項など" style="min-height:48px"></textarea></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-rec')">キャンセル</button><button class="btn bp" onclick="saveRecord()">保存</button></div>
+  </div>
+</div>
+
+<!-- PDF progress -->
+<div class="ov hidden" id="m-pdf">
+  <div class="modal" style="max-width:320px">
+    <div class="mh"><h2>PDF生成中</h2></div>
+    <div class="mb">
+      <div style="font-size:12px;color:var(--mu)" id="pdf-gtxt">準備中...</div>
+      <div class="pg-bar mt8"><div class="pg-fill" id="pdf-gfill" style="width:0%"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════
+// CONSTANTS & DEFAULTS
+// ══════════════════════════════════════════════
+const DN = ['日','月','火','水','木','金','土'];
+const GRP_COLORS = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#be185d'];
+const DEF = {
+  timeslots: { am:'8:50〜11:50', pm:'13:30〜16:30' },
+  staff: ['スタッフA','スタッフB','スタッフC'],
+  menuItems: [
+    { id:'mi_0', name:'Aリカンベントバイク' },{ id:'mi_1', name:'Bレッグプレス' },
+    { id:'mi_2', name:'Cアブダクション' },{ id:'mi_3', name:'Dレッグエクステンション' },
+    { id:'mi_4', name:'Eチェストプレス' },{ id:'mi_5', name:'Fアブドミナル' },
+    { id:'mi_6', name:'Gロータリートーソ' },{ id:'mi_7', name:'上肢プーリー' },
+    { id:'mi_8', name:'SB' },{ id:'mi_9', name:'フットマッサージャー' },
+    { id:'mi_10', name:'個別訓練' },{ id:'mi_11', name:'メドマー' },{ id:'mi_12', name:'低周波' }
+  ],
+  noteTemplates: [
+    { id:'nt_0', text:'利用中は終始穏やかに過ごされた。' },
+    { id:'nt_1', text:'運動中は息切れなく良好な状態であった。' },
+    { id:'nt_2', text:'血圧が若干高めであったため、軽めのメニューで対応した。' },
+    { id:'nt_3', text:'本日は疲労感を訴えられたため、安静を中心に対応した。' },
+    { id:'nt_4', text:'笑顔でスタッフとの会話を楽しまれていた。' },
+  ],
+};
+
+// ══════════════════════════════════════════════
+// STATE（メモリ上のキャッシュ）
+// ══════════════════════════════════════════════
+let db = { users:[], records:{}, groups:[] };
+let cfg = {
+  timeslots: { ...DEF.timeslots },
+  staff: [...DEF.staff],
+  menuItems: DEF.menuItems.map(x=>({...x})),
+  noteTemplates: DEF.noteTemplates.map(x=>({...x})),
+};
+
+function loadLocal() {
+  try { const s=localStorage.getItem('ds3_db'); if(s) db=JSON.parse(s); } catch(e) {}
+  try { const s=localStorage.getItem('ds3_cfg'); if(s) cfg=JSON.parse(s); } catch(e) {}
+  if(!db.groups) db.groups=[];
+  if(!cfg.menuItems?.[0]?.id) cfg.menuItems=DEF.menuItems.map(x=>({...x}));
+  if(!cfg.noteTemplates?.[0]?.id) cfg.noteTemplates=DEF.noteTemplates.map(x=>({...x}));
+}
+function saveLocal() {
+  localStorage.setItem('ds3_db',JSON.stringify(db));
+  localStorage.setItem('ds3_cfg',JSON.stringify(cfg));
+}
+loadLocal();
+
+let curUser=null, curYear=new Date().getFullYear(), curMonth=new Date().getMonth();
+let editRecId=null, editUserId=null, editGrpId=null, recSlot=null;
+
+// ══════════════════════════════════════════════
+// GAS API
+// ══════════════════════════════════════════════
+function gasUrl() { return localStorage.getItem('ds3_gas_url')||''; }
+
+async function gas(action, body={}) {
+  const url = gasUrl(); if(!url) return null;
+  try {
+    const res = await fetch(url, {
+      method:'POST', body:JSON.stringify({action,...body}),
+    });
+    const j = await res.json();
+    if(!j.ok) throw new Error(j.error||'GAS error');
+    return j.result;
+  } catch(e) {
+    console.warn('GAS:', e.message); return null;
+  }
+}
+
+function setSyncUI(state, msg) {
+  const dot=G('sync-dot'), txt=G('sync-txt');
+  if(!dot||!txt) return;
+  const C={ok:'#16a34a',err:'#dc2626',ing:'#d97706',off:'#d1d5db'};
+  dot.style.background = C[state]||C.off;
+  txt.textContent = msg;
+}
+
+let _syncT=null;
+function scheduleSync() {
+  clearTimeout(_syncT);
+  _syncT = setTimeout(()=>syncNow(true), 2000);
+}
+
+async function syncNow(silent=false) {
+  if(!gasUrl()) {
+    if(!silent) toast('GAS URLが設定されていません（各種設定から入力）');
+    return;
+  }
+  setSyncUI('ing','同期中…');
+  const btn=G('btn-sync'); if(btn) btn.disabled=true;
+  try {
+    const remote = await gas('getAll');
+    if(!remote) { setSyncUI('err','接続失敗'); if(!silent) toast('GAS接続に失敗しました'); return; }
+    applyRemote(remote);
+    saveLocal();
+    const ts = new Date().toLocaleTimeString('ja-JP');
+    setSyncUI('ok',`同期済 ${ts}`);
+    if(!silent) toast('同期しました');
+    renderSB();
+    if(curUser) refreshRec();
+    if(document.getElementById('v-settings') && !document.getElementById('v-settings').classList.contains('hidden'))
+      renderSettings();
+  } catch(e) {
+    setSyncUI('err','エラー: '+e.message);
+    if(!silent) toast('同期エラー: '+e.message);
+  } finally {
+    if(btn) btn.disabled=false;
+  }
+}
+
+function applyRemote(r) {
+  if(r.users)         db.users = r.users;
+  if(r.groups)        db.groups = r.groups;
+  if(r.records)       db.records = r.records;
+  if(r.staff)         cfg.staff = r.staff.map(s=>typeof s==='string'?s:s.name);
+  if(r.menuItems)     cfg.menuItems = r.menuItems;
+  if(r.noteTemplates) cfg.noteTemplates = r.noteTemplates;
+  if(r.timeslots)     cfg.timeslots = r.timeslots;
+  if(r.schedule)      cfg.schedule = r.schedule;
+}
+
+// ══════════════════════════════════════════════
+// ROUTING
+// ══════════════════════════════════════════════
+function showV(v) {
+  ['welcome','record','groups','users','settings'].forEach(id=>{
+    const el=G('v-'+id); if(!el) return;
+    el.classList.toggle('hidden', id!==v);
+  });
+  if(v==='groups')   renderGroups();
+  if(v==='users')    renderUsers();
+  if(v==='settings') renderSettings();
+  if(v==='record' && curUser) refreshRec();
+}
+function selectUser(id) {
+  curUser=id; curYear=new Date().getFullYear(); curMonth=new Date().getMonth();
+  renderSB(); showV('record');
+}
+
+// ══════════════════════════════════════════════
+// SIDEBAR
+// ══════════════════════════════════════════════
+function todayRec(uid) {
+  const td=fmtD(new Date());
+  return (db.records[uid]||[]).some(r=>r.date===td);
+}
+function uItemHTML(u, color) {
+  const done=todayRec(u.id);
+  const retiredStyle=u.retired?'filter:grayscale(1);opacity:0.55':'';
+  const av=`<div class="uav" style="${retiredStyle};${color?`background:${color}22;border-color:${color}44;color:${color}`:'background:var(--ac2);border-color:var(--ac3);color:var(--ac)'}">${u.name.slice(0,2)}</div>`;
+  const retiredTag=u.retired?'<span style="font-size:9px;color:var(--mu);margin-left:2px">(退会)</span>':'';
+  return `${av}<div class="unm" style="${retiredStyle}">${u.name}${retiredTag}</div>${done&&!u.retired?'<div class="tdot" title="本日記録済"></div>':''}`;
+}
+function renderSB() {
+  const today=new Date();
+  G('sb-today').textContent=`${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日（${DN[today.getDay()]}）`;
+  const body=G('sb-body'); let html='';
+  const showRetired=localStorage.getItem('ds3_show_retired')==='1';
+  const allUsers=db.users.filter(u=>showRetired || !u.retired);
+  const inGrp=new Set();
+  if(db.groups.length) {
+    html+='<div class="sb-lbl">グループ</div>';
+    db.groups.forEach(g=>{
+      const members=(g.members||[]).map(uid=>allUsers.find(u=>u.id===uid)).filter(Boolean);
+      (g.members||[]).forEach(uid=>inGrp.add(uid)); // 退会者も「所属済み」扱いにして未グループへ二重表示しない
+      const doneN=members.filter(u=>!u.retired&&todayRec(u.id)).length;
+      const badge=doneN?`<span style="font-size:9px;background:var(--gn);color:#fff;border-radius:100px;padding:1px 5px">${doneN}</span>`:'';
+      html+=`<div class="grp open">
+        <div class="grp-hd" onclick="this.closest('.grp').classList.toggle('open')">
+          <div class="grp-dot" style="background:${g.color}"></div>
+          <div class="grp-nm">${g.name}${badge}</div>
+          <span class="grp-arrow">▶</span>
+        </div>
+        <div class="grp-bd">
+          ${members.length ? members.map(u=>`
+            <div class="uitem ${u.id===curUser?'active':''} ${todayRec(u.id)&&!u.retired?'today-done':''}" style="${u.retired?'background:#f3f4f6':''}" onclick="selectUser('${u.id}')">
+              ${uItemHTML(u,g.color)}
+            </div>`).join('') : '<div style="font-size:11px;color:var(--mu);padding:4px 7px">メンバーなし</div>'}
+        </div>
+      </div>`;
+    });
+  }
+  const ungrouped=allUsers.filter(u=>!inGrp.has(u.id));
+  if(ungrouped.length) {
+    html+='<div class="sb-lbl">未グループ</div>';
+    html+=ungrouped.map(u=>`
+      <div class="uitem ${u.id===curUser?'active':''} ${todayRec(u.id)&&!u.retired?'today-done':''}" style="${u.retired?'background:#f3f4f6':''}" onclick="selectUser('${u.id}')">
+        ${uItemHTML(u,null)}
+      </div>`).join('');
+  }
+  if(!allUsers.length) html='<div style="padding:10px 6px;font-size:11px;color:var(--mu)">利用者未登録</div>';
+  body.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════
+// RECORD VIEW
+// ══════════════════════════════════════════════
+function refreshRec() {
+  if(!curUser) return;
+  const u=db.users.find(u=>u.id===curUser); if(!u) return;
+  G('cur-uname').textContent=u.name;
+  G('mlbl').textContent=`${curYear}年${curMonth+1}月`;
+  renderSumBar(); renderScBar(); renderRGrid(); fillPdfYears();
+}
+function chMonth(d) {
+  curMonth+=d;
+  if(curMonth>11){curMonth=0;curYear++;} if(curMonth<0){curMonth=11;curYear--;}
+  refreshRec();
+}
+function switchTab(t,el) {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); el.classList.add('active');
+  G('tab-recs').classList.toggle('hidden',t!=='recs');
+  G('tab-pdf').classList.toggle('hidden',t!=='pdf');
+  if(t==='pdf') loadArchiveYearOptions();
+}
+function getMonthRecs() {
+  return (db.records[curUser]||[]).filter(r=>{
+    const d=new Date(r.date); return d.getFullYear()===curYear&&d.getMonth()===curMonth;
+  }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+}
+function renderSumBar() {
+  const recs=getMonthRecs();
+  const bpArr=recs.filter(r=>r.bps).map(r=>+r.bps);
+  const tArr=recs.filter(r=>r.temp).map(r=>+r.temp);
+  const avgBp=bpArr.length?Math.round(bpArr.reduce((a,b)=>a+b,0)/bpArr.length):'—';
+  const avgT=tArr.length?(tArr.reduce((a,b)=>a+b,0)/tArr.length).toFixed(1):'—';
+  G('sumbar').innerHTML=`
+    <div class="si"><div class="sn">${recs.length}</div><div class="sl">利用日数</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sn">${avgBp}</div><div class="sl">平均収縮期血圧</div></div>
+    <div class="sdiv"></div>
+    <div class="si"><div class="sn">${avgT}</div><div class="sl">平均体温</div></div>`;
+}
+function renderScBar() {
+  const recs=db.records[curUser]||[];
+  const myGrps=db.groups.filter(g=>(g.members||[]).includes(curUser));
+  const slots=myGrps.length ? [...new Set(myGrps.map(g=>g.slot).filter(Boolean))] : ['am','pm'];
+  const days=[];
+  const d=new Date(curYear,curMonth,1);
+  while(d.getMonth()===curMonth){days.push(new Date(d));d.setDate(d.getDate()+1);}
+  let html='<span class="sc-lbl">ショートカット→</span>';
+  days.forEach(day=>{
+    const ds=fmtD(day);
+    slots.forEach(slot=>{
+      const has=recs.some(r=>r.date===ds&&r.timeSlot===slot);
+      html+=`<div class="sc-slot ${has?'has':''}" onclick="quickAdd('${ds}','${slot}')">
+        <span>${day.getDate()}${DN[day.getDay()]}</span>
+        <span class="sc-day">${slot==='am'?'前':'後'}</span>
+      </div>`;
+    });
+  });
+  G('sc-bar').innerHTML=html;
+}
+function quickAdd(date,slot) {
+  const rec=(db.records[curUser]||[]).find(r=>r.date===date&&r.timeSlot===slot);
+  if(rec) editRecord(rec.id); else openAddRecord(date,slot);
+}
+function renderRGrid() {
+  const grid=G('rgrid'); const recs=getMonthRecs();
+  if(!recs.length) {
+    grid.innerHTML=`<div class="addcard" onclick="openAddRecord()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>この月の記録を追加</span></div>`;
+    return;
+  }
+  grid.innerHTML=recs.map(r=>{
+    const d=new Date(r.date); const wd=DN[d.getDay()];
+    const checkedMenus=cfg.menuItems.filter(m=>{
+      const v=r.menu&&r.menu[m.id];
+      return v===true||v==='true';
+    });
+    const timeDisp=r.timeSlot?(r.timeSlot==='am'?'午前 ':'午後 ')+(r.time||''):(r.time||'');
+    return `<div class="rcard">
+      <div class="rch">
+        <div><div class="rdt">${r.date}（${wd}）</div>${timeDisp?`<div class="rdt2">${timeDisp}</div>`:''}</div>
+        <div class="badge bdg">記録済</div>
+      </div>
+      <div class="rcb">
+        <div class="vrow">
+          <div class="vi"><div class="vl">血圧</div><div class="vv" style="font-size:11px">${r.bps||'—'}/${r.bpd||'—'}</div><div class="vu">mmHg</div></div>
+          <div class="vi"><div class="vl">脈拍</div><div class="vv">${r.pulse||'—'}</div><div class="vu">回/分</div></div>
+          <div class="vi"><div class="vl">体温</div><div class="vv">${r.temp||'—'}</div><div class="vu">℃</div></div>
+        </div>
+        ${checkedMenus.length?`<div class="mtags">${checkedMenus.map(m=>`<span class="mtag">${m.name}</span>`).join('')}</div>`:''}
+        ${r.notes?`<div class="notetx">${r.notes}</div>`:''}
+      </div>
+      <div class="rcacts">
+        <button class="btn bs bxs" onclick="editRecord('${r.id}')">編集</button>
+        <button class="btn br bxs" onclick="delRecord('${r.id}')">削除</button>
+      </div>
+    </div>`;
+  }).join('')+`<div class="addcard" onclick="openAddRecord()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>記録を追加</span></div>`;
+}
+
+// ══════════════════════════════════════════════
+// RECORD MODAL
+// ══════════════════════════════════════════════
+function openAddRecord(date,slot) {
+  editRecId=null; G('m-rec-t').textContent='記録を追加';
+  G('r-date').value=date||fmtD(new Date());
+  recSlot=slot||null; renderSlots(recSlot);
+  ['r-bps','r-bpd','r-pulse','r-temp','r-notes','r-memo'].forEach(id=>G(id).value='');
+  G('r-rctime').value='30分'; G('r-mtime').value='90分';
+  buildMenuCbs(null); fillStaff(); fillTmpls();
+  showM('m-rec');
+}
+function editRecord(id) {
+  const r=(db.records[curUser]||[]).find(x=>x.id===id); if(!r) return;
+  editRecId=id; G('m-rec-t').textContent='記録を編集';
+  G('r-date').value=r.date; recSlot=r.timeSlot||null; renderSlots(recSlot);
+  G('r-bps').value=r.bps||''; G('r-bpd').value=r.bpd||'';
+  G('r-pulse').value=r.pulse||''; G('r-temp').value=r.temp||'';
+  G('r-rctime').value=r.rcTime||'30分'; G('r-mtime').value=r.menuTime||'90分';
+  G('r-notes').value=r.notes||''; G('r-memo').value=r.memo||'';
+  buildMenuCbs(r.menu||{}); fillStaff(r.rcStaff||''); fillTmpls();
+  showM('m-rec');
+}
+function renderSlots(s) {
+  G('ts-am-t').textContent=cfg.timeslots.am;
+  G('ts-pm-t').textContent=cfg.timeslots.pm;
+  G('ts-am').classList.toggle('on',s==='am');
+  G('ts-pm').classList.toggle('on',s==='pm');
+}
+function selSlot(s){ recSlot=recSlot===s?null:s; renderSlots(recSlot); }
+function setToday(){ G('r-date').value=fmtD(new Date()); }
+function buildMenuCbs(menuState) {
+  G('menu-cbs').innerHTML=(cfg.menuItems||[]).map(m=>{
+    const on=menuState&&(menuState[m.id]===true||menuState[m.id]==='true');
+    return `<div class="cbi ${on?'on':''}" id="cb-${m.id}" onclick="togCb('${m.id}')">
+      <input type="checkbox" id="cbi-${m.id}" ${on?'checked':''}><label for="cbi-${m.id}">${m.name}</label>
+    </div>`;
+  }).join('');
+}
+function togCb(mid) {
+  const cb=G(`cbi-${mid}`); cb.checked=!cb.checked;
+  G(`cb-${mid}`).classList.toggle('on',cb.checked);
+}
+function fillStaff(val='') {
+  G('r-staff').innerHTML='<option value="">選択なし</option>'+(cfg.staff||[]).map(s=>`<option ${s===val?'selected':''}>${s}</option>`).join('');
+}
+function fillTmpls() {
+  G('r-tmpl').innerHTML='<option value="">— 定型文を選択 —</option>'+(cfg.noteTemplates||[]).map(t=>`<option value="${t.text}">${t.text.length>28?t.text.slice(0,28)+'…':t.text}</option>`).join('');
+}
+function applyTmpl() {
+  const v=G('r-tmpl').value; if(!v) return;
+  const ta=G('r-notes'); ta.value=(ta.value?ta.value+'\n':'')+v; G('r-tmpl').value='';
+}
+async function saveRecord() {
+  const date=G('r-date').value; if(!date){toast('利用日を選択してください');return;}
+  const menu={};
+  (cfg.menuItems||[]).forEach(m=>{ menu[m.id]=G(`cbi-${m.id}`)?.checked||false; });
+  const timeStr=recSlot==='am'?cfg.timeslots.am:recSlot==='pm'?cfg.timeslots.pm:'';
+  const rec={
+    id:editRecId||uid(), date, timeSlot:recSlot, time:timeStr,
+    bps:G('r-bps').value, bpd:G('r-bpd').value, pulse:G('r-pulse').value, temp:G('r-temp').value,
+    rcStaff:G('r-staff').value, rcTime:G('r-rctime').value,
+    menu, menuTime:G('r-mtime').value,
+    notes:G('r-notes').value, memo:G('r-memo').value,
+    updatedAt:new Date().toISOString()
+  };
+  if(!db.records[curUser]) db.records[curUser]=[];
+  if(editRecId) {
+    const idx=db.records[curUser].findIndex(r=>r.id===editRecId);
+    if(idx>=0) db.records[curUser][idx]=rec;
+  } else { db.records[curUser].push(rec); }
+  saveLocal(); closeM('m-rec'); refreshRec(); toast('保存しました');
+  gas('upsertRecord',{record:rec,userId:curUser});
+}
+async function delRecord(id) {
+  if(!confirm('この記録を削除しますか？')) return;
+  db.records[curUser]=(db.records[curUser]||[]).filter(r=>r.id!==id);
+  saveLocal(); refreshRec(); toast('削除しました');
+  gas('deleteRecord',{recordId:id});
+}
+
+// ══════════════════════════════════════════════
+// USER CRUD
+// ══════════════════════════════════════════════
+function openAddUser() {
+  editUserId=null; G('m-user-t').textContent='新規利用者追加';
+  ['u-name','u-kana'].forEach(id=>G(id).value='');
+  G('u-dob').value=''; G('u-care').value='';
+  G('u-retired-row').style.display='none';
+  G('u-retired').checked=false;
+  showM('m-user'); setTimeout(()=>G('u-name').focus(),50);
+}
+function editUser(userId) {
+  const u=db.users.find(x=>x.id===userId); if(!u) return;
+  editUserId=userId; G('m-user-t').textContent='利用者情報を編集';
+  G('u-name').value=u.name||'';
+  G('u-kana').value=u.kana||'';
+  G('u-dob').value=u.dob||'';
+  G('u-care').value=u.careLevel||'';
+  G('u-retired-row').style.display='block';
+  G('u-retired').checked=!!u.retired;
+  showM('m-user');
+}
+async function saveUser() {
+  const name=G('u-name').value.trim(); if(!name){toast('氏名を入力してください');return;}
+  const retired=editUserId ? G('u-retired').checked : false;
+  const user={id:editUserId||uid(),name,kana:G('u-kana').value,dob:G('u-dob').value,careLevel:G('u-care').value,createdAt:(editUserId&&db.users.find(x=>x.id===editUserId)?.createdAt)||new Date().toISOString(),retired};
+  if(editUserId) { const idx=db.users.findIndex(u=>u.id===editUserId); if(idx>=0) db.users[idx]=user; }
+  else { db.users.push(user); db.records[user.id]=[]; }
+  saveLocal(); closeM('m-user'); renderSB(); renderUsers(); toast('保存しました');
+  gas('upsertUser',{user});
+}
+async function delUser(id) {
+  if(!confirm('この利用者と全記録を削除しますか？')) return;
+  db.users=db.users.filter(u=>u.id!==id); delete db.records[id];
+  db.groups.forEach(g=>{g.members=(g.members||[]).filter(m=>m!==id);});
+  if(curUser===id){curUser=null;showV('users');}
+  saveLocal(); renderSB(); renderUsers(); toast('削除しました');
+  gas('deleteUser',{userId:id});
+}
+function renderUsers() {
+  const el=G('utbl'); if(!el) return;
+  const showRetired=localStorage.getItem('ds3_show_retired')==='1';
+  const visibleUsers=db.users.filter(u=>showRetired || !u.retired);
+  const retiredCount=db.users.filter(u=>u.retired).length;
+
+  // 退会者表示トグルUI（utbl直前に出すため、呼び出し元のtopbarに既にあれば不要。ここではutbl先頭に出す）
+  const toggleBar=`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--sur2);border-bottom:1px solid var(--brd);font-size:12px">
+    <span style="color:var(--mu)">${showRetired?`退会者を含む全${db.users.length}名を表示中（うち退会${retiredCount}名）`:`在籍中の利用者のみ表示中${retiredCount>0?`（退会者${retiredCount}名は非表示）`:''}`}</span>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+      <input type="checkbox" id="toggle-retired-chk" ${showRetired?'checked':''} onchange="toggleShowRetired(this.checked)">
+      <span>退会者も表示する</span>
+    </label>
+  </div>`;
+
+  if(!visibleUsers.length){
+    el.innerHTML=toggleBar+'<div style="padding:20px;text-align:center;font-size:12px;color:var(--mu)">表示できる利用者がいません</div>';
+    return;
+  }
+  el.innerHTML=toggleBar+visibleUsers.map(u=>{
+    const myGrps=db.groups.filter(g=>(g.members||[]).includes(u.id));
+    const otherGrps=db.groups.filter(g=>!(g.members||[]).includes(u.id));
+    const chips=myGrps.map(g=>`<span style="display:inline-flex;align-items:center;gap:3px;background:${g.color}22;border:1px solid ${g.color}55;border-radius:100px;padding:2px 7px;font-size:10px;color:${g.color};font-weight:600">
+      <span style="width:6px;height:6px;border-radius:50%;background:${g.color};display:inline-block"></span>${g.name}
+      <button onclick="doRemoveMember('${g.id}','${u.id}')" style="background:none;border:none;cursor:pointer;color:${g.color};font-size:12px;line-height:1;padding:0 0 0 2px">×</button>
+    </span>`).join('');
+    const addSel=otherGrps.length?`<select onchange="doAddMember('${u.id}',this.value);this.value=''" style="font-size:11px;border:1px solid var(--brd);border-radius:6px;padding:2px 6px;color:var(--mu)">
+      <option value="">＋グループへ追加…</option>
+      ${otherGrps.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}
+    </select>`:'';
+    const retiredStyle=u.retired?'background:#f3f4f6;opacity:0.75':'';
+    const retiredBadge=u.retired?'<span class="badge" style="background:#e5e7eb;color:#6b7280;border:1px solid #d1d5db;margin-left:6px">退会済</span>':'';
+    return `<div class="urow" style="${retiredStyle}">
+      <div class="uav" style="width:32px;height:32px;font-size:10px;${u.retired?'filter:grayscale(1)':''}">${u.name.slice(0,2)}</div>
+      <div style="flex:1;min-width:120px"><div class="urow-name">${u.name}${retiredBadge}</div><div class="urow-meta">${u.kana||''}${u.careLevel?' · '+u.careLevel:''} · 記録${(db.records[u.id]||[]).length}件</div></div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <button class="btn bs bxs" onclick="selectUser('${u.id}');showV('record')">記録</button>
+        <button class="btn bs bxs" onclick="editUser('${u.id}')">編集</button>
+        ${u.retired
+          ?`<button class="btn bg bxs" onclick="toggleRetire('${u.id}',false)">復帰させる</button>`
+          :`<button class="btn ba bxs" onclick="toggleRetire('${u.id}',true)">退会にする</button>`}
+        <button class="btn br bxs" onclick="delUser('${u.id}')">完全削除</button>
+      </div>
+      <div style="width:100%;padding-left:38px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px">
+        ${chips||'<span style="font-size:10px;color:var(--mu)">グループ未所属</span>'}${addSel}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleShowRetired(checked) {
+  localStorage.setItem('ds3_show_retired', checked?'1':'0');
+  renderUsers();
+  renderSB();
+}
+
+async function toggleRetire(userId, retired) {
+  const u=db.users.find(x=>x.id===userId); if(!u) return;
+  if(retired && !confirm(`${u.name} さんを退会済みにしますか？\n一覧から基本非表示になります（データは削除されません）。`)) return;
+  u.retired=retired;
+  saveLocal(); renderUsers(); renderSB();
+  gas('upsertUser',{user:u});
+  toast(retired?'退会済みにしました':'在籍中に戻しました');
+}
+
+// ══════════════════════════════════════════════
+// GROUP CRUD
+// ══════════════════════════════════════════════
+function openAddGroup() {
+  editGrpId=null; G('m-grp-t').textContent='グループ追加'; G('g-name').value='';
+  document.querySelectorAll('input[name=gc]').forEach((r,i)=>r.checked=i===0);
+  const gs=G('g-slot');
+  gs.innerHTML=`<option value="am">午前（${cfg.timeslots.am}）</option><option value="pm">午後（${cfg.timeslots.pm}）</option><option value="">指定なし</option>`;
+  showM('m-group');
+}
+async function saveGroup() {
+  const name=G('g-name').value.trim(); if(!name){toast('グループ名を入力してください');return;}
+  const color=document.querySelector('input[name=gc]:checked')?.value||GRP_COLORS[0];
+  const slot=G('g-slot').value;
+  const grp={id:editGrpId||uid(),name,color,slot,members:editGrpId?(db.groups.find(g=>g.id===editGrpId)?.members||[]):[]};
+  if(editGrpId){const idx=db.groups.findIndex(g=>g.id===editGrpId);if(idx>=0)db.groups[idx]=grp;}
+  else db.groups.push(grp);
+  saveLocal(); closeM('m-group'); renderSB(); renderGroups(); toast('保存しました');
+  gas('upsertGroup',{group:grp});
+}
+async function delGroup(id) {
+  if(!confirm('グループを削除しますか？（利用者は削除されません）')) return;
+  db.groups=db.groups.filter(g=>g.id!==id);
+  saveLocal(); renderSB(); renderGroups(); toast('削除しました');
+  gas('deleteGroup',{groupId:id});
+}
+async function doAddMember(userId,groupId) {
+  if(!groupId) return;
+  const g=db.groups.find(x=>x.id===groupId); if(!g) return;
+  if(!g.members) g.members=[];
+  if(!g.members.includes(userId)) g.members.push(userId);
+  saveLocal(); renderSB(); renderUsers(); renderGroups(); toast('グループに追加しました');
+  gas('addMember',{groupId,userId});
+}
+async function doRemoveMember(groupId,userId) {
+  const g=db.groups.find(x=>x.id===groupId); if(!g) return;
+  g.members=(g.members||[]).filter(m=>m!==userId);
+  saveLocal(); renderSB(); renderUsers(); renderGroups(); toast('グループから外しました');
+  gas('removeMember',{groupId,userId});
+}
+function renderGroups() {
+  const el=G('grp-mgmt'); if(!el) return;
+  if(!db.groups.length){
+    el.innerHTML='<div style="text-align:center;padding:20px;font-size:12px;color:var(--mu)">グループが登録されていません<br><br><button class="btn bp bxs" onclick="openAddGroup()">＋ グループを追加</button></div>';
+    return;
+  }
+  el.innerHTML=db.groups.map(g=>{
+    const members=(g.members||[]).map(uid=>db.users.find(u=>u.id===uid)).filter(Boolean);
+    const unassigned=db.users.filter(u=>!(g.members||[]).includes(u.id));
+    return `<div class="gmc">
+      <div class="gmch">
+        <div class="gmc-dot" style="background:${g.color}"></div>
+        <div class="gmc-name">${g.name}</div>
+        <span style="font-size:11px;color:var(--mu)">${g.slot==='am'?'午前':g.slot==='pm'?'午後':'時間指定なし'}</span>
+        <button class="btn br bxs" onclick="delGroup('${g.id}')" style="margin-left:8px">削除</button>
+      </div>
+      <div class="gmc-members">
+        ${members.map(u=>`<div class="mchip">${u.name}<button onclick="doRemoveMember('${g.id}','${u.id}')">×</button></div>`).join('')
+          ||'<span style="font-size:11px;color:var(--mu)">メンバーなし</span>'}
+      </div>
+      ${unassigned.length?`<div class="gmc-add">
+        <select id="gsel-${g.id}" style="flex:1;font-size:12px">
+          <option value="">利用者を追加…</option>
+          ${unassigned.map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}
+        </select>
+        <button class="btn bp bxs" onclick="doAddMember(G('gsel-${g.id}').value,'${g.id}')">追加</button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════
+function renderSettings() {
+  const el=G('settings-content'); if(!el) return;
+  const gasStored=localStorage.getItem('ds3_gas_url')||'';
+  el.innerHTML=`
+
+    <!-- GAS連携 -->
+    <div class="setcard" style="border:2px solid ${gasStored?'var(--gn3)':'var(--am3)'}">
+      <h3>☁ Google Apps Script 連携設定
+        <span class="gas-badge" style="background:${gasStored?'var(--gn2)':'var(--am2)'};color:${gasStored?'var(--gn)':'var(--am)'};border:1px solid ${gasStored?'var(--gn3)':'var(--am3)'}">
+          ${gasStored?'接続済':'未設定'}
+        </span>
+      </h3>
+      <p style="font-size:11px;color:var(--mu);margin-bottom:10px">GASデプロイ後に取得した「ウェブアプリURL」を貼り付けてください。</p>
+      <div class="fg" style="margin-bottom:8px">
+        <div class="fl">GASウェブアプリURL</div>
+        <input type="text" id="gas-url-inp" value="${gasStored}" placeholder="https://script.google.com/macros/s/...">
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn bp bxs" onclick="saveGasUrl()">URLを保存</button>
+        <button class="btn bg bxs" onclick="testGas()">接続テスト</button>
+        ${gasStored?'<button class="btn ba bxs" onclick="migrateToGas()">↑ ローカルデータをGASへ移行</button>':''}
+      </div>
+      <div id="gas-test-result" style="font-size:11px"></div>
+    </div>
+
+    <!-- 年次アーカイブ -->
+    ${gasStored?`
+    <div class="setcard" style="border:2px solid var(--brd2)">
+      <h3>🗄 年次アーカイブ</h3>
+      <p style="font-size:11px;color:var(--mu);margin-bottom:10px">
+        過去年の記録を「records_archive_西暦年」という別シートへ退避します。
+        records シートが軽くなり、動作が速いまま保てます。アプリのボタン操作だけで完結し、
+        スプレッドシートを直接開く必要はありません。
+      </p>
+      <div id="archive-summary" style="margin-bottom:10px;font-size:12px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg" style="min-width:120px">
+          <div class="fl">対象年</div>
+          <select id="archive-year-sel"></select>
+        </div>
+        <button class="btn ba bxs" onclick="doArchiveYear()">この年をアーカイブする</button>
+        <button class="btn bs bxs" onclick="loadArchiveSummary()">最新状態を取得</button>
+      </div>
+      <div id="archive-result" style="margin-top:8px;font-size:11px"></div>
+    </div>
+    `:''}
+
+    <!-- 利用時間 -->
+    <div class="setcard">
+      <h3>利用時間設定</h3>
+      <div class="fr fr2">
+        <div class="fg"><div class="fl">午前</div><input type="text" value="${cfg.timeslots.am}" onchange="cfg.timeslots.am=this.value;saveLocal();"></div>
+        <div class="fg"><div class="fl">午後</div><input type="text" value="${cfg.timeslots.pm}" onchange="cfg.timeslots.pm=this.value;saveLocal();"></div>
+      </div>
+      <button class="btn bg bxs" style="margin-top:8px" onclick="gas('saveTimeslots',{timeslots:cfg.timeslots}).then(()=>toast('GASへ保存しました'))">GASへ保存</button>
+    </div>
+
+    <!-- スタッフ -->
+    <div class="setcard">
+      <h3>スタッフリスト</h3>
+      <div class="set-list">
+        ${(cfg.staff||[]).map((s,i)=>`<div class="set-item">
+          <span class="set-item-name">${s}</span>
+          <button class="btn br bxs" onclick="delStaff(${i})">削除</button>
+        </div>`).join('')}
+      </div>
+      <div class="set-add">
+        <input type="text" id="si-staff" placeholder="スタッフ名を追加…" onkeydown="if(event.key==='Enter')addStaff()">
+        <button class="btn bp bxs" onclick="addStaff()">追加</button>
+      </div>
+    </div>
+
+    <!-- 個別メニュー -->
+    <div class="setcard">
+      <h3>個別メニュー項目</h3>
+      <div class="set-list">
+        ${(cfg.menuItems||[]).map((m,i)=>`<div class="set-item">
+          <span class="set-item-name">${m.name}</span>
+          <button class="btn br bxs" onclick="delMenuItem('${m.id}')">削除</button>
+        </div>`).join('')}
+      </div>
+      <div class="set-add">
+        <input type="text" id="si-menu" placeholder="メニュー項目を追加…" onkeydown="if(event.key==='Enter')addMenuItem()">
+        <button class="btn bp bxs" onclick="addMenuItem()">追加</button>
+      </div>
+    </div>
+
+    <!-- 経過観察定型文 -->
+    <div class="setcard">
+      <h3>経過観察 定型文</h3>
+      <p style="font-size:11px;color:var(--mu);margin-bottom:8px">記録入力時のプルダウンに表示されます。直接編集・追加・削除できます。</p>
+      <div class="set-list" id="tmpl-list">
+        ${(cfg.noteTemplates||[]).map((t,i)=>`<div class="set-item" style="align-items:flex-start">
+          <textarea rows="2" style="flex:1;font-size:12px;resize:vertical;min-height:40px" onchange="editTemplate('${t.id}',this.value)">${t.text}</textarea>
+          <button class="btn br bxs" style="flex-shrink:0;margin-top:2px" onclick="delTemplate('${t.id}')">削除</button>
+        </div>`).join('')}
+      </div>
+      <div class="set-add" style="margin-top:6px">
+        <textarea id="si-tmpl" rows="2" placeholder="新しい定型文を入力…" style="flex:1;font-size:12px;resize:vertical"></textarea>
+        <button class="btn bp bxs" style="align-self:flex-end" onclick="addTemplate()">追加</button>
+      </div>
+    </div>
+  `;
+  if(localStorage.getItem('ds3_gas_url')) loadArchiveSummary();
+}
+
+// ══════════════════════════════════════════════
+// 年次アーカイブ
+// ══════════════════════════════════════════════
+async function loadArchiveSummary() {
+  const box=G('archive-summary'); const sel=G('archive-year-sel');
+  if(!box||!sel) return;
+  box.innerHTML='<span style="color:var(--mu)">読み込み中…</span>';
+  const r=await gas('getArchiveSummary');
+  if(!r){ box.innerHTML='<span style="color:var(--rd)">取得に失敗しました</span>'; return; }
+
+  const years=Object.keys(r.yearCounts||{}).sort((a,b)=>b.localeCompare(a));
+  const archivedYears=new Set((r.archives||[]).map(a=>a.year));
+
+  if(years.length===0){
+    box.innerHTML='<span style="color:var(--mu)">recordsシートに記録がまだありません</span>';
+  } else {
+    box.innerHTML=`
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="color:var(--mu)">records シート合計：<b style="color:var(--tx)">${r.currentTotal}</b> 件</div>
+        ${years.map(y=>`
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="width:50px">${y}年</span>
+            <span style="color:var(--mu)">${r.yearCounts[y]}件</span>
+            ${archivedYears.has(y)?'<span class="badge bdg" style="font-size:9px">アーカイブ済</span>':''}
+          </div>`).join('')}
+        ${(r.archives||[]).length?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--brd);color:var(--mu)">
+          既存アーカイブ：${r.archives.map(a=>`${a.year}年(${a.count}件)`).join('、')}
+        </div>`:''}
+      </div>`;
+  }
+
+  sel.innerHTML=years.map(y=>`<option value="${y}" ${archivedYears.has(y)?'data-archived="1"':''}>${y}年${archivedYears.has(y)?'（再アーカイブ）':''}</option>`).join('')
+    || '<option value="">対象なし</option>';
+}
+
+async function doArchiveYear() {
+  const sel=G('archive-year-sel');
+  const year=sel?.value;
+  if(!year){ toast('対象年がありません'); return; }
+  const isReArchive=sel.selectedOptions[0]?.dataset.archived==='1';
+  const msg=isReArchive
+    ? `${year}年は既にアーカイブ済みです。recordsシートに残っている同年データ（追加分）も含めて再度アーカイブしますか？`
+    : `${year}年の記録を「records_archive_${year}」シートへ移動します。元のrecordsシートからは削除されます。よろしいですか？`;
+  if(!confirm(msg)) return;
+
+  const resBox=G('archive-result');
+  if(resBox) resBox.innerHTML='<span style="color:var(--am)">処理中…（件数によって数十秒かかる場合があります）</span>';
+
+  const r=await gas('archiveYear',{year});
+  if(!r){
+    if(resBox) resBox.innerHTML='<span style="color:var(--rd)">アーカイブに失敗しました</span>';
+    toast('アーカイブに失敗しました');
+    return;
+  }
+  if(resBox) resBox.innerHTML=`<span style="color:var(--gn)">✓ ${r.message}</span>`;
+  toast(r.message||'アーカイブが完了しました');
+
+  // ローカルキャッシュも同期し直す（アーカイブされた分はdb.recordsから消える想定）
+  await syncNow(true);
+  loadArchiveSummary();
+}
+
+// settings CRUD
+function addStaff() {
+  const inp=G('si-staff'); const v=inp.value.trim(); if(!v) return;
+  cfg.staff.push(v); inp.value=''; saveLocal(); renderSettings();
+  gas('upsertStaff',{item:{id:uid(),name:v}});
+  toast('追加しました');
+}
+function delStaff(i) {
+  const name=cfg.staff[i]; cfg.staff.splice(i,1); saveLocal(); renderSettings();
+  gas('deleteStaff',{name});
+  toast('削除しました');
+}
+function addMenuItem() {
+  const inp=G('si-menu'); const v=inp.value.trim(); if(!v) return;
+  const item={id:uid(),name:v}; cfg.menuItems.push(item); inp.value='';
+  saveLocal(); renderSettings(); gas('upsertMenuItem',{item}); toast('追加しました');
+}
+function delMenuItem(id) {
+  cfg.menuItems=cfg.menuItems.filter(m=>m.id!==id);
+  saveLocal(); renderSettings(); gas('deleteMenuItem',{id}); toast('削除しました');
+}
+function addTemplate() {
+  const ta=G('si-tmpl'); const v=ta.value.trim(); if(!v) return;
+  const item={id:uid(),text:v}; cfg.noteTemplates.push(item); ta.value='';
+  saveLocal(); renderSettings(); gas('upsertTemplate',{item}); toast('追加しました');
+}
+function editTemplate(id,text) {
+  const t=cfg.noteTemplates.find(x=>x.id===id); if(t){t.text=text;} saveLocal();
+  gas('upsertTemplate',{item:{id,text}});
+}
+function delTemplate(id) {
+  cfg.noteTemplates=cfg.noteTemplates.filter(t=>t.id!==id);
+  saveLocal(); renderSettings(); gas('deleteTemplate',{id}); toast('削除しました');
+}
+
+// GAS URL
+function saveGasUrl() {
+  const url=G('gas-url-inp')?.value?.trim(); if(!url){toast('URLを入力してください');return;}
+  if(!url.startsWith('https://script.google.com')){toast('GASのURLではないようです');return;}
+  localStorage.setItem('ds3_gas_url',url);
+  toast('URLを保存しました。接続テストを行ってください。');
+  renderSettings(); setSyncUI('off','URL保存済');
+}
+async function testGas() {
+  const url=G('gas-url-inp')?.value?.trim(); if(!url){toast('URLを入力してください');return;}
+  const res=G('gas-test-result'); if(res) res.textContent='接続中…';
+  try {
+    const r=await fetch(url,{method:'POST',body:JSON.stringify({action:'ping'})});
+    const j=await r.json();
+    if(j.ok){
+      if(res) res.innerHTML='<span style="color:var(--gn)">✓ 接続成功！URLは正しいです。</span>';
+      setSyncUI('ok','接続テスト成功');
+    } else { if(res) res.innerHTML=`<span style="color:var(--rd)">✗ ${j.error}</span>`; }
+  } catch(e) {
+    if(res) res.innerHTML=`<span style="color:var(--rd)">✗ 接続失敗: ${e.message}</span>`;
+  }
+}
+async function migrateToGas() {
+  if(!confirm('現在のローカルデータをGASへ移行します。GAS側のデータは上書きされます。よろしいですか？')) return;
+  setSyncUI('ing','移行中…');
+  const r=await gas('migrate',{data:{
+    users:db.users, records:db.records, groups:db.groups,
+    settings:{staff:cfg.staff,menuItems:cfg.menuItems.map(m=>m.name),noteTemplates:cfg.noteTemplates.map(t=>t.text),timeslots:cfg.timeslots}
+  }});
+  if(r){setSyncUI('ok','移行完了');toast('GASへ移行しました。次回から自動同期されます。');}
+  else{setSyncUI('err','移行失敗');toast('移行に失敗しました');}
+}
+
+// ══════════════════════════════════════════════
+// JSON BACKUP
+// ══════════════════════════════════════════════
+function exportJSON() {
+  const blob=new Blob([JSON.stringify({db,cfg,at:new Date().toISOString()},null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`ds_backup_${fmtD(new Date())}.json`;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},2000);
+  toast('バックアップを書き出しました');
+}
+function importJSON(e) {
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d.db)db=d.db; if(d.cfg)cfg=d.cfg;
+      saveLocal(); renderSB(); toast('読み込みました');
+    }catch(err){toast('読み込み失敗');}
+  };
+  r.readAsText(f); e.target.value='';
+}
+
+// ══════════════════════════════════════════════
+// PDF
+// ══════════════════════════════════════════════
+function fillPdfYears() {
+  const sel=G('pdf-all-year'); if(!sel) return;
+  const yrs=new Set([new Date().getFullYear()]);
+  Object.values(db.records).flat().forEach(r=>yrs.add(+r.date.slice(0,4)));
+  sel.innerHTML=[...yrs].sort((a,b)=>b-a).map(y=>`<option value="${y}">${y}年</option>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// アーカイブ閲覧（過去年データを後から確認・PDF化）
+// ══════════════════════════════════════════════
+async function loadArchiveYearOptions() {
+  const sel=G('archive-view-year'); if(!sel) return;
+  if(!localStorage.getItem('ds3_gas_url')){
+    sel.innerHTML='<option value="">GAS未接続のため利用できません</option>';
+    return;
+  }
+  const r=await gas('listArchives');
+  if(!r || !r.archives || !r.archives.length){
+    sel.innerHTML='<option value="">アーカイブされたデータはまだありません</option>';
+    return;
+  }
+  sel.innerHTML=r.archives.map(a=>`<option value="${a.year}">${a.year}年（全体${a.count}件）</option>`).join('');
+}
+
+async function loadArchiveView() {
+  const year=G('archive-view-year')?.value;
+  const resBox=G('archive-view-result');
+  if(!year){ toast('対象年を選択してください'); return; }
+  const u=db.users.find(x=>x.id===curUser);
+  if(!u){ toast('利用者を選択してください'); return; }
+
+  resBox.innerHTML='<span style="color:var(--mu);font-size:12px">読み込み中…</span>';
+  const r=await gas('getArchiveYearRecords',{year});
+  if(!r || !r.found){
+    resBox.innerHTML=`<span style="color:var(--rd);font-size:12px">${year}年のアーカイブデータが見つかりませんでした</span>`;
+    return;
+  }
+  const recs=(r.records[curUser]||[]).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!recs.length){
+    resBox.innerHTML=`<span style="color:var(--mu);font-size:12px">${u.name} さんの${year}年のアーカイブ記録はありませんでした</span>`;
+    return;
+  }
+
+  // 一時的にメモリ上に保持してPDF出力できるようにする
+  _archiveViewCache={year,userId:curUser,recs};
+
+  resBox.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--tx)">${u.name} さんの${year}年：<b>${recs.length}件</b>の記録が見つかりました</span>
+      <button class="btn bp bxs" onclick="exportArchivePDF()">この内容でPDF出力</button>
+    </div>
+    <div class="rgrid" style="max-height:360px;overflow-y:auto;padding:4px">
+      ${recs.map(r=>{
+        const d=new Date(r.date); const wd=DN[d.getDay()];
+        const menuNames=(cfg.menuItems||[]).filter(m=>r.menu&&r.menu[m.id]).map(m=>m.name);
+        const timeDisp=r.timeSlot?(r.timeSlot==='am'?'午前':'午後')+' '+(r.time||''):(r.time||'');
+        return `<div class="rcard" style="opacity:0.92">
+          <div class="rch"><div><div class="rdt">${r.date}（${wd}）</div>${timeDisp?`<div class="rdt2">${timeDisp}</div>`:''}</div><div class="badge bdb">アーカイブ</div></div>
+          <div class="rcb">
+            <div class="vrow">
+              <div class="vi"><div class="vl">血圧</div><div class="vv" style="font-size:11px">${r.bps||'—'}/${r.bpd||'—'}</div><div class="vu">mmHg</div></div>
+              <div class="vi"><div class="vl">脈拍</div><div class="vv">${r.pulse||'—'}</div><div class="vu">回/分</div></div>
+              <div class="vi"><div class="vl">体温</div><div class="vv">${r.temp||'—'}</div><div class="vu">℃</div></div>
+            </div>
+            ${menuNames.length?`<div class="mtags">${menuNames.map(m=>`<span class="mtag">${m}</span>`).join('')}</div>`:''}
+            ${r.notes?`<div class="notetx">${r.notes}</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+let _archiveViewCache=null;
+async function exportArchivePDF() {
+  if(!_archiveViewCache){ toast('先に「この年のデータを見る」を実行してください'); return; }
+  const u=db.users.find(x=>x.id===_archiveViewCache.userId);
+  if(!u){ toast('利用者情報が見つかりません'); return; }
+  showM('m-pdf');
+  const gtxt=G('pdf-gtxt'),gfill=G('pdf-gfill');
+  try{
+    gtxt.textContent='アーカイブPDFを生成中…';
+    await genPDF(u,_archiveViewCache.recs,6,`${_archiveViewCache.year}年（アーカイブ）`);
+    gfill.style.width='100%'; gtxt.textContent='完了！'; await sleep(500);
+  } finally { closeM('m-pdf'); gfill.style.width='0%'; }
+}
+async function doPDF(allUsers) {
+  showM('m-pdf');
+  const gtxt=G('pdf-gtxt'),gfill=G('pdf-gfill');
+  try {
+    if(allUsers) {
+      const year=+G('pdf-all-year').value, pp=+G('pdf-all-pp').value;
+      for(let i=0;i<db.users.length;i++) {
+        const u=db.users[i]; gtxt.textContent=`${u.name} (${i+1}/${db.users.length})`;
+        gfill.style.width=`${Math.round(i/db.users.length*100)}%`;
+        const recs=(db.records[u.id]||[]).filter(r=>+r.date.slice(0,4)===year).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        if(recs.length) await genPDF(u,recs,pp,`${year}年`);
+        await sleep(60);
+      }
+    } else {
+      const u=db.users.find(x=>x.id===curUser); if(!u){toast('利用者を選択してください');return;}
+      const pp=+G('pdf-pp').value;
+      const period=G('pdf-period').value;
+      const recs=period==='year'
+        ?(db.records[curUser]||[]).filter(r=>+r.date.slice(0,4)===curYear).sort((a,b)=>new Date(a.date)-new Date(b.date))
+        :getMonthRecs();
+      if(!recs.length){toast('記録がありません');return;}
+      gtxt.textContent=`生成中…`;
+      await genPDF(u,recs,pp,period==='year'?`${curYear}年`:`${curYear}年${curMonth+1}月`);
+    }
+    gfill.style.width='100%'; gtxt.textContent='完了！'; await sleep(500);
+  } finally { closeM('m-pdf'); gfill.style.width='0%'; }
+}
+async function genPDF(user,recs,perPage,label) {
+  if(!recs.length){toast(`${user.name}：記録なし`);return;}
+  const PW=1680,PH=1188;
+  const pages=[]; for(let i=0;i<recs.length;i+=perPage) pages.push(recs.slice(i,i+perPage));
+  const imgs=[];
+  for(let pi=0;pi<pages.length;pi++) {
+    const c=document.createElement('canvas'); c.width=PW; c.height=PH;
+    drawPage(c.getContext('2d'),PW,PH,user,pages[pi],perPage,label,pi+1,pages.length);
+    imgs.push(c.toDataURL('image/jpeg',0.93)); await sleep(10);
+  }
+  buildPDF(imgs,`ケース記録_${user.name}_${label}.pdf`);
+  toast(`${user.name} のPDFを出力しました`);
+}
+function drawPage(ctx,W,H,user,recs,perPage,label,pn,total) {
+  const M=24,HTOP=56,colW=Math.floor((W-M*2)/perPage);
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#1e3a8a'; ctx.fillRect(0,0,W,HTOP-8);
+  ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.textAlign='left';
+  ctx.fillText(`ケース記録　${user.name}`,M,34);
+  ctx.font='17px sans-serif'; ctx.fillText(label,M+340,34);
+  ctx.textAlign='right'; ctx.font='15px sans-serif';
+  ctx.fillText(`${pn}/${total}ページ`,W-M,34);
+  if(user.careLevel) ctx.fillText(user.careLevel,W-M,50);
+  ctx.textAlign='left';
+  ctx.strokeStyle='#3b82f6'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(M,HTOP-6); ctx.lineTo(W-M,HTOP-6); ctx.stroke();
+  recs.forEach((rec,ci)=>{
+    const cx=M+ci*colW,cw=colW-6; let cy=HTOP;
+    ctx.strokeStyle='#d1d5db'; ctx.lineWidth=1; ctx.strokeRect(cx,cy,cw,H-cy-M);
+    const d=new Date(rec.date); const wd=DN[d.getDay()];
+    ctx.fillStyle='#1e40af'; ctx.fillRect(cx,cy,cw,32);
+    ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif';
+    ctx.fillText(`${rec.date}（${wd}）`,cx+6,cy+22); cy+=34;
+    if(rec.timeSlot) {
+      const am=rec.timeSlot==='am';
+      ctx.fillStyle=am?'#dbeafe':'#dcfce7'; ctx.fillRect(cx,cy,cw,22);
+      ctx.fillStyle=am?'#1d4ed8':'#15803d'; ctx.font='bold 12px sans-serif';
+      ctx.fillText(am?'午前':'午後',cx+6,cy+15);
+      if(rec.time){ctx.font='12px sans-serif';ctx.fillText(rec.time,cx+36,cy+15);}
+      cy+=24;
+    }
+    // vitals
+    ctx.fillStyle='#eff6ff'; ctx.fillRect(cx,cy,cw,72);
+    ctx.strokeStyle='#bfdbfe'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,72);
+    ctx.fillStyle='#1e40af'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ バイタルサイン',cx+6,cy+16);
+    ctx.fillStyle='#374151'; ctx.font='13px sans-serif';
+    ctx.fillText(`血圧：${rec.bps||'—'}/${rec.bpd||'—'} mmHg`,cx+6,cy+32);
+    ctx.fillText(`脈拍：${rec.pulse||'—'} 回/分`,cx+6,cy+48);
+    ctx.fillText(`体温：${rec.temp||'—'} ℃`,cx+6,cy+64); cy+=74;
+    // redcord
+    if(rec.rcStaff||rec.rcTime) {
+      ctx.fillStyle='#faf5ff'; ctx.fillRect(cx,cy,cw,36);
+      ctx.strokeStyle='#e9d5ff'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,36);
+      ctx.fillStyle='#6b21a8'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ レッドコード',cx+6,cy+15);
+      ctx.fillStyle='#374151'; ctx.font='12px sans-serif';
+      ctx.fillText(`担当：${rec.rcStaff||'—'}　${rec.rcTime||'30分'}`,cx+6,cy+29); cy+=38;
+    }
+    // menu — 全項目表示
+    {
+      const all=cfg.menuItems||[]; const LH=14;
+      const mH=18+all.length*LH+16+4;
+      ctx.fillStyle='#f0fdf4'; ctx.fillRect(cx,cy,cw,mH);
+      ctx.strokeStyle='#bbf7d0'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,mH);
+      ctx.fillStyle='#15803d'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ 個別メニュー',cx+6,cy+15);
+      all.forEach((m,mi)=>{
+        const checked=rec.menu&&(rec.menu[m.id]===true||rec.menu[m.id]==='true');
+        const iy=cy+18+LH*(mi+1);
+        if(checked){
+          ctx.fillStyle='rgba(22,163,74,.12)'; ctx.fillRect(cx+4,iy-11,cw-8,LH);
+          ctx.fillStyle='#15803d'; ctx.font='bold 11px sans-serif';
+          ctx.fillText('✓',cx+7,iy); ctx.fillText(m.name,cx+20,iy);
+        } else {
+          ctx.fillStyle='#9ca3af'; ctx.font='11px sans-serif';
+          ctx.fillText('□',cx+7,iy); ctx.fillText(m.name,cx+20,iy);
+        }
+      });
+      ctx.fillStyle='#374151'; ctx.font='bold 11px sans-serif';
+      ctx.fillText(`実施時間：${rec.menuTime||'—'}`,cx+6,cy+18+all.length*LH+14);
+      cy+=mH+3;
+    }
+    // notes
+    if(rec.notes){
+      ctx.font='12px sans-serif';
+      const nl=wrapTxt(ctx,rec.notes,cw-12,12);
+      const nH=18+nl.length*15+3;
+      ctx.fillStyle='#fffbeb'; ctx.fillRect(cx,cy,cw,nH);
+      ctx.strokeStyle='#fde68a'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,nH);
+      ctx.fillStyle='#92400e'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ 経過観察',cx+6,cy+15);
+      ctx.fillStyle='#374151'; ctx.font='12px sans-serif';
+      nl.forEach((l,i)=>ctx.fillText(l,cx+6,cy+18+15*(i+1))); cy+=nH+3;
+    }
+    if(rec.memo){
+      ctx.font='12px sans-serif';
+      const ml=wrapTxt(ctx,rec.memo,cw-12,12);
+      const mH=18+ml.length*15+3;
+      ctx.fillStyle='#f8f9fb'; ctx.fillRect(cx,cy,cw,mH);
+      ctx.strokeStyle='#e2e6ea'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,mH);
+      ctx.fillStyle='#374151'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ 備考',cx+6,cy+15);
+      ctx.fillStyle='#6b7280'; ctx.font='12px sans-serif';
+      ml.forEach((l,i)=>ctx.fillText(l,cx+6,cy+18+15*(i+1)));
+    }
+  });
+  ctx.fillStyle='#e5e7eb'; ctx.fillRect(0,H-20,W,20);
+  ctx.fillStyle='#6b7280'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(`デイサービス記録管理システム　出力日：${fmtD(new Date())}`,W/2,H-5); ctx.textAlign='left';
+}
+function wrapTxt(ctx,text,maxW,fs) {
+  ctx.font=`${fs}px sans-serif`; const lines=[]; let line='';
+  for(const ch of text){
+    if(ch==='\n'){lines.push(line);line='';continue;}
+    const t=line+ch;
+    if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=ch;} else line=t;
+  }
+  if(line) lines.push(line); return lines;
+}
+function buildPDF(dataURLs,filename) {
+  const PW=842,PH=595,N=dataURLs.length;
+  const jpegs=dataURLs.map(url=>{const b=atob(url.split(',')[1]);const a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;});
+  const chunks=[],xrefs={};let pos=0;
+  const e=s=>new TextEncoder().encode(s);
+  function ps(s){const u=e(s);chunks.push(u);pos+=u.length;}
+  function pb(u){chunks.push(u);pos+=u.length;}
+  ps('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+  const catN=1,pgsN=2,pageNs=Array.from({length:N},(_,i)=>3+i),imgNs=Array.from({length:N},(_,i)=>3+N+i),cntNs=Array.from({length:N},(_,i)=>3+2*N+i);
+  xrefs[catN]=pos; ps(`${catN} 0 obj\n<</Type/Catalog/Pages ${pgsN} 0 R>>\nendobj\n`);
+  xrefs[pgsN]=pos; ps(`${pgsN} 0 obj\n<</Type/Pages/Kids[${pageNs.map(n=>n+' 0 R').join(' ')}]/Count ${N}>>\nendobj\n`);
+  pageNs.forEach((pn,i)=>{xrefs[pn]=pos;ps(`${pn} 0 obj\n<</Type/Page/Parent ${pgsN} 0 R/MediaBox[0 0 ${PW} ${PH}]/Resources<</XObject<</Im${i} ${imgNs[i]} 0 R>>>>/Contents ${cntNs[i]} 0 R>>\nendobj\n`);});
+  cntNs.forEach((cn,i)=>{xrefs[cn]=pos;const s=e(`q ${PW} 0 0 ${PH} 0 0 cm /Im${i} Do Q`);ps(`${cn} 0 obj\n<</Length ${s.length}>>\nstream\n`);pb(s);ps('\nendstream\nendobj\n');});
+  imgNs.forEach((imgN,i)=>{xrefs[imgN]=pos;const hdr=e(`${imgN} 0 obj\n<</Type/XObject/Subtype/Image/Width 1680/Height 1188/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jpegs[i].length}>>\nstream\n`);const ftr=e('\nendstream\nendobj\n');pb(hdr);pb(jpegs[i]);pb(ftr);});
+  const xrOff=pos,maxN=Math.max(...Object.keys(xrefs).map(Number));
+  let xr=`xref\n0 ${maxN+1}\n0000000000 65535 f \n`;
+  for(let i=1;i<=maxN;i++) xr+=xrefs[i]!==undefined?`${String(xrefs[i]).padStart(10,'0')} 00000 n \n`:`0000000000 65535 f \n`;
+  ps(xr); ps(`trailer\n<</Size ${maxN+1}/Root ${catN} 0 R>>\nstartxref\n${xrOff}\n%%EOF\n`);
+  const tot=chunks.reduce((s,c)=>s+c.length,0),out=new Uint8Array(tot);let off=0;
+  for(const c of chunks){out.set(c,off);off+=c.length;}
+  const blob=new Blob([out],{type:'application/pdf'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},3000);
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function G(id){return document.getElementById(id);}
+function fmtD(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2800);}
+function showM(id){G(id).classList.remove('hidden');}
+function closeM(id){G(id).classList.add('hidden');}
+document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeM(o.id);}));
+
+// ══════════════════════════════════════════════
+// PWA
+// ══════════════════════════════════════════════
+if('serviceWorker' in navigator){
+  const sw=`const C='ds3-v1';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.add(location.pathname)));self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))));self.clients.claim();});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'})),{scope:'/'}).catch(()=>{});
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+renderSB();
+showV('welcome');
+if(gasUrl()) { setSyncUI('ing','起動時同期中…'); syncNow(true); }
+else setSyncUI('off','GAS URL未設定');
+setInterval(()=>{if(gasUrl())syncNow(true);},5*60*1000);
+</script>
+</body>
+</html>
