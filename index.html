@@ -141,6 +141,9 @@ textarea{resize:vertical;min-height:60px}
 .cbi{display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 7px;border-radius:6px;border:1px solid var(--brd);transition:all .1s;user-select:none}
 .cbi:hover{border-color:var(--ac);background:var(--ac2)}.cbi.on{border-color:var(--ac);background:var(--ac2)}
 .cbi input{width:13px;height:13px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
+.cbi.pinned{border-color:#f59e0b;background:#fffbeb}
+.cbi.pinned label{color:#92400e;font-weight:600}
+.cbi.pinned input{accent-color:#f59e0b}
 .cbi label{font-size:11px;cursor:pointer}.cbi.on label{color:var(--ac);font-weight:600}
 
 /* users table */
@@ -543,7 +546,7 @@ async function syncNow(silent=false) {
     if(!remote) { setSyncUI('err','接続失敗'); if(!silent) toast('GAS接続に失敗しました'); return; }
     applyRemote(remote);
     saveLocal();
-    const ts = new Date().toLocaleTimeString('ja-JP');
+    const ts = nowTimeStr();
     setSyncUI('ok',`同期済 ${ts}`);
     if(!silent) toast('同期しました');
     renderSB();
@@ -561,12 +564,34 @@ async function syncNow(silent=false) {
 function applyRemote(r) {
   if(r.users)         db.users = r.users;
   if(r.groups)        db.groups = r.groups;
-  if(r.records)       db.records = r.records;
+  if(r.records) {
+    // GASのスプレッドシートがdate列を日付型として扱い英語表記で返す場合があるため
+    // 必ず "YYYY-MM-DD" 形式に正規化する
+    const sanitized = {};
+    Object.entries(r.records).forEach(([uid, recs]) => {
+      sanitized[uid] = (recs||[]).map(rec => Object.assign({}, rec, { date: sanitizeDate(rec.date) }));
+    });
+    db.records = sanitized;
+  }
   if(r.staff)         cfg.staff = r.staff.map(s=>typeof s==='string'?s:s.name);
   if(r.menuItems)     cfg.menuItems = r.menuItems;
   if(r.noteTemplates) cfg.noteTemplates = r.noteTemplates;
   if(r.timeslots)     cfg.timeslots = r.timeslots;
   if(r.schedule)      cfg.schedule = r.schedule;
+}
+
+// date文字列を必ずYYYY-MM-DD形式に変換
+function sanitizeDate(val) {
+  if(!val) return '';
+  const s = String(val).trim();
+  // すでにYYYY-MM-DD形式
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // スプレッドシートが日付型として返した場合（例: "Fri Jun 27 2025 09:00:00 GMT+0900"）
+  const d = new Date(s);
+  if(!isNaN(d.getTime())) return fmtD(d);
+  // スラッシュ区切り（2025/06/27）
+  if(/^\d{4}\/\d{2}\/\d{2}/.test(s)) return s.slice(0,10).replace(/\//g,'-');
+  return s;
 }
 
 // ══════════════════════════════════════════════
@@ -592,7 +617,11 @@ function selectUser(id) {
 // ══════════════════════════════════════════════
 function todayRec(uid) {
   const td=fmtD(new Date());
-  return (db.records[uid]||[]).some(r=>r.date===td);
+  return (db.records[uid]||[]).some(r=>r.date===td && isRecComplete(r));
+}
+function isRecComplete(r) {
+  // バイタル4項目すべて入力済み + 経過観察1文字以上
+  return !!(r.bps && r.bpd && r.pulse && r.temp && r.notes && r.notes.trim().length > 0);
 }
 function uItemHTML(u, color) {
   const done=todayRec(u.id);
@@ -675,9 +704,11 @@ function switchTab(t,el) {
   if(t==='pdf') loadArchiveYearOptions();
 }
 function getMonthRecs() {
-  return (db.records[curUser]||[]).filter(r=>{
-    const d=new Date(r.date); return d.getFullYear()===curYear&&d.getMonth()===curMonth;
-  }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  // "YYYY-MM-DD" の文字列比較で絞り込み（タイムゾーンのズレ回避）
+  const prefix=`${curYear}-${String(curMonth+1).padStart(2,'0')}`;
+  return (db.records[curUser]||[])
+    .filter(r=>r.date&&r.date.startsWith(prefix))
+    .sort((a,b)=>a.date.localeCompare(b.date));
 }
 function renderSumBar() {
   const recs=getMonthRecs();
@@ -723,7 +754,7 @@ function renderRGrid() {
     return;
   }
   grid.innerHTML=recs.map(r=>{
-    const d=new Date(r.date); const wd=DN[d.getDay()];
+    const wd=dateWd(r.date);
     const checkedMenus=cfg.menuItems.filter(m=>{
       const v=r.menu&&r.menu[m.id];
       return v===true||v==='true';
@@ -782,15 +813,42 @@ function renderSlots(s) {
 }
 function selSlot(s){ recSlot=recSlot===s?null:s; renderSlots(recSlot); }
 function setToday(){ G('r-date').value=fmtD(new Date()); }
+// 固定チェック：利用者ごとにLocalStorageで管理
+function getPinned() {
+  if(!curUser) return {};
+  try { return JSON.parse(localStorage.getItem('ds3_pin_'+curUser)||'{}'); } catch(e){return {};}
+}
+function savePinned(pinned) {
+  if(!curUser) return;
+  localStorage.setItem('ds3_pin_'+curUser, JSON.stringify(pinned));
+}
+function togPin(mid, e) {
+  e.stopPropagation(); // チェックボックスのtogCbが発火しないよう
+  const pinned=getPinned();
+  pinned[mid]=!pinned[mid];
+  savePinned(pinned);
+  // ピンボタンの表示を更新
+  const btn=document.getElementById(`pin-${mid}`);
+  if(btn){ btn.textContent=pinned[mid]?'📌':'📍'; btn.style.opacity=pinned[mid]?'1':'0.35'; }
+}
+
 function buildMenuCbs(menuState) {
+  const pinned=getPinned();
   G('menu-cbs').innerHTML=(cfg.menuItems||[]).map(m=>{
-    const on=menuState&&(menuState[m.id]===true||menuState[m.id]==='true');
-    return `<div class="cbi ${on?'on':''}" id="cb-${m.id}" onclick="togCb('${m.id}')">
-      <input type="checkbox" id="cbi-${m.id}" ${on?'checked':''}><label for="cbi-${m.id}">${m.name}</label>
+    // 固定チェックされていれば強制ON
+    const isPinned=!!pinned[m.id];
+    const on=isPinned || (menuState&&(menuState[m.id]===true||menuState[m.id]==='true'));
+    return `<div class="cbi ${on?'on':''} ${isPinned?'pinned':''}" id="cb-${m.id}" onclick="togCb('${m.id}')">
+      <input type="checkbox" id="cbi-${m.id}" ${on?'checked':''}${isPinned?' data-pinned="1"':''}>
+      <label for="cbi-${m.id}">${m.name}</label>
+      <button id="pin-${m.id}" onclick="togPin('${m.id}',event)" title="固定チェック（次回以降も常にON）"
+        style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 2px;opacity:${isPinned?'1':'0.35'};flex-shrink:0">${isPinned?'📌':'📍'}</button>
     </div>`;
   }).join('');
 }
 function togCb(mid) {
+  const pinned=getPinned();
+  if(pinned[mid]) return; // 固定チェック中は手動解除不可（ピンを外す操作で解除）
   const cb=G(`cbi-${mid}`); cb.checked=!cb.checked;
   G(`cb-${mid}`).classList.toggle('on',cb.checked);
 }
@@ -1384,7 +1442,7 @@ async function loadArchiveView() {
     </div>
     <div class="rgrid" style="max-height:360px;overflow-y:auto;padding:4px">
       ${recs.map(r=>{
-        const d=new Date(r.date); const wd=DN[d.getDay()];
+        const wd=dateWd(r.date);
         const menuNames=(cfg.menuItems||[]).filter(m=>r.menu&&r.menu[m.id]).map(m=>m.name);
         const timeDisp=r.timeSlot?(r.timeSlot==='am'?'午前':'午後')+' '+(r.time||''):(r.time||'');
         return `<div class="rcard" style="opacity:0.92">
@@ -1460,10 +1518,10 @@ function drawPage(ctx,W,H,user,recs,perPage,label,pn,total) {
   const M=24,HTOP=56,colW=Math.floor((W-M*2)/perPage);
   ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
   ctx.fillStyle='#1e3a8a'; ctx.fillRect(0,0,W,HTOP-8);
-  ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.textAlign='left';
+  ctx.fillStyle='#fff'; ctx.font='bold 22px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.textAlign='left';
   ctx.fillText(`ケース記録　${user.name}`,M,34);
-  ctx.font='17px sans-serif'; ctx.fillText(label,M+340,34);
-  ctx.textAlign='right'; ctx.font='15px sans-serif';
+  ctx.font='17px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.fillText(label,M+340,34);
+  ctx.textAlign='right'; ctx.font='15px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
   ctx.fillText(`${pn}/${total}ページ`,W-M,34);
   if(user.careLevel) ctx.fillText(user.careLevel,W-M,50);
   ctx.textAlign='left';
@@ -1472,23 +1530,23 @@ function drawPage(ctx,W,H,user,recs,perPage,label,pn,total) {
   recs.forEach((rec,ci)=>{
     const cx=M+ci*colW,cw=colW-6; let cy=HTOP;
     ctx.strokeStyle='#d1d5db'; ctx.lineWidth=1; ctx.strokeRect(cx,cy,cw,H-cy-M);
-    const d=new Date(rec.date); const wd=DN[d.getDay()];
+    const wd=dateWd(rec.date);
     ctx.fillStyle='#1e40af'; ctx.fillRect(cx,cy,cw,32);
-    ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif';
+    ctx.fillStyle='#fff'; ctx.font='bold 16px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
     ctx.fillText(`${rec.date}（${wd}）`,cx+6,cy+22); cy+=34;
     if(rec.timeSlot) {
       const am=rec.timeSlot==='am';
       ctx.fillStyle=am?'#dbeafe':'#dcfce7'; ctx.fillRect(cx,cy,cw,22);
-      ctx.fillStyle=am?'#1d4ed8':'#15803d'; ctx.font='bold 12px sans-serif';
+      ctx.fillStyle=am?'#1d4ed8':'#15803d'; ctx.font='bold 12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
       ctx.fillText(am?'午前':'午後',cx+6,cy+15);
-      if(rec.time){ctx.font='12px sans-serif';ctx.fillText(rec.time,cx+36,cy+15);}
+      if(rec.time){ctx.font='12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';ctx.fillText(rec.time,cx+36,cy+15);}
       cy+=24;
     }
     // vitals
     ctx.fillStyle='#eff6ff'; ctx.fillRect(cx,cy,cw,72);
     ctx.strokeStyle='#bfdbfe'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,72);
-    ctx.fillStyle='#1e40af'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ バイタルサイン',cx+6,cy+16);
-    ctx.fillStyle='#374151'; ctx.font='13px sans-serif';
+    ctx.fillStyle='#1e40af'; ctx.font='bold 12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.fillText('■ バイタルサイン',cx+6,cy+16);
+    ctx.fillStyle='#374151'; ctx.font='13px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
     ctx.fillText(`血圧：${rec.bps||'—'}/${rec.bpd||'—'} mmHg`,cx+6,cy+32);
     ctx.fillText(`脈拍：${rec.pulse||'—'} 回/分`,cx+6,cy+48);
     ctx.fillText(`体温：${rec.temp||'—'} ℃`,cx+6,cy+64); cy+=74;
@@ -1496,8 +1554,8 @@ function drawPage(ctx,W,H,user,recs,perPage,label,pn,total) {
     if(rec.rcStaff||rec.rcTime) {
       ctx.fillStyle='#faf5ff'; ctx.fillRect(cx,cy,cw,36);
       ctx.strokeStyle='#e9d5ff'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,36);
-      ctx.fillStyle='#6b21a8'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ レッドコード',cx+6,cy+15);
-      ctx.fillStyle='#374151'; ctx.font='12px sans-serif';
+      ctx.fillStyle='#6b21a8'; ctx.font='bold 12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.fillText('■ レッドコード',cx+6,cy+15);
+      ctx.fillStyle='#374151'; ctx.font='12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
       ctx.fillText(`担当：${rec.rcStaff||'—'}　${rec.rcTime||'30分'}`,cx+6,cy+29); cy+=38;
     }
     // menu — 全項目表示
@@ -1506,47 +1564,47 @@ function drawPage(ctx,W,H,user,recs,perPage,label,pn,total) {
       const mH=18+all.length*LH+16+4;
       ctx.fillStyle='#f0fdf4'; ctx.fillRect(cx,cy,cw,mH);
       ctx.strokeStyle='#bbf7d0'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,mH);
-      ctx.fillStyle='#15803d'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ 個別メニュー',cx+6,cy+15);
+      ctx.fillStyle='#15803d'; ctx.font='bold 12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.fillText('■ 個別メニュー',cx+6,cy+15);
       all.forEach((m,mi)=>{
         const checked=rec.menu&&(rec.menu[m.id]===true||rec.menu[m.id]==='true');
         const iy=cy+18+LH*(mi+1);
         if(checked){
           ctx.fillStyle='rgba(22,163,74,.12)'; ctx.fillRect(cx+4,iy-11,cw-8,LH);
-          ctx.fillStyle='#15803d'; ctx.font='bold 11px sans-serif';
+          ctx.fillStyle='#15803d'; ctx.font='bold 11px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
           ctx.fillText('✓',cx+7,iy); ctx.fillText(m.name,cx+20,iy);
         } else {
-          ctx.fillStyle='#9ca3af'; ctx.font='11px sans-serif';
+          ctx.fillStyle='#9ca3af'; ctx.font='11px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
           ctx.fillText('□',cx+7,iy); ctx.fillText(m.name,cx+20,iy);
         }
       });
-      ctx.fillStyle='#374151'; ctx.font='bold 11px sans-serif';
+      ctx.fillStyle='#374151'; ctx.font='bold 11px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
       ctx.fillText(`実施時間：${rec.menuTime||'—'}`,cx+6,cy+18+all.length*LH+14);
       cy+=mH+3;
     }
     // notes
     if(rec.notes){
-      ctx.font='12px sans-serif';
+      ctx.font='12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
       const nl=wrapTxt(ctx,rec.notes,cw-12,12);
       const nH=18+nl.length*15+3;
       ctx.fillStyle='#fffbeb'; ctx.fillRect(cx,cy,cw,nH);
       ctx.strokeStyle='#fde68a'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,nH);
-      ctx.fillStyle='#92400e'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ 経過観察',cx+6,cy+15);
-      ctx.fillStyle='#374151'; ctx.font='12px sans-serif';
+      ctx.fillStyle='#92400e'; ctx.font='bold 12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.fillText('■ 経過観察',cx+6,cy+15);
+      ctx.fillStyle='#374151'; ctx.font='12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
       nl.forEach((l,i)=>ctx.fillText(l,cx+6,cy+18+15*(i+1))); cy+=nH+3;
     }
     if(rec.memo){
-      ctx.font='12px sans-serif';
+      ctx.font='12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
       const ml=wrapTxt(ctx,rec.memo,cw-12,12);
       const mH=18+ml.length*15+3;
       ctx.fillStyle='#f8f9fb'; ctx.fillRect(cx,cy,cw,mH);
       ctx.strokeStyle='#e2e6ea'; ctx.lineWidth=0.8; ctx.strokeRect(cx,cy,cw,mH);
-      ctx.fillStyle='#374151'; ctx.font='bold 12px sans-serif'; ctx.fillText('■ 備考',cx+6,cy+15);
-      ctx.fillStyle='#6b7280'; ctx.font='12px sans-serif';
+      ctx.fillStyle='#374151'; ctx.font='bold 12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.fillText('■ 備考',cx+6,cy+15);
+      ctx.fillStyle='#6b7280'; ctx.font='12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif';
       ml.forEach((l,i)=>ctx.fillText(l,cx+6,cy+18+15*(i+1)));
     }
   });
   ctx.fillStyle='#e5e7eb'; ctx.fillRect(0,H-20,W,20);
-  ctx.fillStyle='#6b7280'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+  ctx.fillStyle='#6b7280'; ctx.font='12px Hiragino Sans,Yu Gothic UI,Noto Sans JP,sans-serif'; ctx.textAlign='center';
   ctx.fillText(`デイサービス記録管理システム　出力日：${fmtD(new Date())}`,W/2,H-5); ctx.textAlign='left';
 }
 function wrapTxt(ctx,text,maxW,fs) {
@@ -1594,7 +1652,21 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2800);}
 function showM(id){G(id).classList.remove('hidden');}
 function closeM(id){G(id).classList.add('hidden');}
-document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeM(o.id);}));
+
+// "2025-01-15" をタイムゾーンのズレなく安全にパースして曜日を返す
+function dateWd(dateStr){
+  // YYYY-MM-DD を直接パース（new Date("YYYY-MM-DD")はUTC扱いになりズレる場合がある）
+  const [y,m,d]=dateStr.split('-').map(Number);
+  return DN[new Date(y,m-1,d).getDay()];
+}
+// 現在時刻を日本語の時刻文字列で返す（ブラウザ言語設定に依存しない）
+function nowTimeStr(){
+  const n=new Date();
+  const h=String(n.getHours()).padStart(2,'0');
+  const mi=String(n.getMinutes()).padStart(2,'0');
+  const s=String(n.getSeconds()).padStart(2,'0');
+  return `${h}:${mi}:${s}`;
+}
 
 
 // ══════════════════════════════════════════════
