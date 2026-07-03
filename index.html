@@ -147,10 +147,10 @@ textarea{resize:vertical;min-height:60px}
 .cbi label{font-size:11px;cursor:pointer}.cbi.on label{color:var(--ac);font-weight:600}
 
 /* users table */
-.utbl{background:var(--sur);border:1px solid var(--brd);border-radius:10px;overflow:hidden}
-.urow{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-bottom:1px solid var(--brd);flex-wrap:wrap}
-.urow:last-child{border-bottom:none}.urow:hover{background:var(--bg)}
-.urow-name{font-size:13px;font-weight:500}.urow-meta{font-size:11px;color:var(--mu)}
+.utbl{border-radius:10px;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+.urow{background:var(--sur);border:1.5px solid var(--brd);border-radius:8px;display:flex;align-items:flex-start;gap:10px;padding:10px 12px;flex-wrap:wrap;transition:box-shadow .1s,border-color .1s}
+.urow:hover{border-color:var(--ac3);box-shadow:0 2px 8px rgba(37,99,235,.08)}
+.urow-name{font-size:13px;font-weight:600}.urow-meta{font-size:11px;color:var(--mu)}
 
 /* groups management */
 .gmc{background:var(--sur);border:1px solid var(--brd);border-radius:10px;overflow:hidden;margin-bottom:10px}
@@ -301,11 +301,19 @@ textarea{resize:vertical;min-height:60px}
   <!-- users -->
   <div id="v-users" class="hidden view-panel">
     <div class="topbar">
-      <div class="tbl"><div class="bc"><span>利用者管理</span></div></div>
+      <div class="tbl" style="flex:1;gap:10px">
+        <div class="bc"><span>利用者管理</span></div>
+        <div style="position:relative;flex:1;max-width:260px">
+          <input type="text" id="user-search" placeholder="名前・読み仮名で検索…"
+            oninput="renderUsers()"
+            style="padding-left:28px;width:100%;font-size:12px">
+          <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--mu);font-size:13px;pointer-events:none">🔍</span>
+        </div>
+      </div>
       <div class="tbr"><button class="btn bp bxs" onclick="openAddUser()">＋ 新規追加</button></div>
     </div>
     <div class="content" style="overflow-y:auto;flex:1">
-      <div class="utbl" id="utbl"></div>
+      <div id="utbl"></div>
     </div>
   </div>
 
@@ -932,12 +940,18 @@ async function delUser(id) {
 function renderUsers() {
   const el=G('utbl'); if(!el) return;
   const showRetired=localStorage.getItem('ds3_show_retired')==='1';
-  const visibleUsers=db.users.filter(u=>showRetired || !u.retired);
+  // 検索キーワードでフィルタ
+  const q=(G('user-search')?.value||'').trim().toLowerCase();
+  const visibleUsers=db.users.filter(u=>{
+    if(!showRetired && u.retired) return false;
+    if(!q) return true;
+    return (u.name||'').toLowerCase().includes(q) || (u.kana||'').toLowerCase().includes(q);
+  });
   const retiredCount=db.users.filter(u=>u.retired).length;
 
-  // 退会者表示トグルUI（utbl直前に出すため、呼び出し元のtopbarに既にあれば不要。ここではutbl先頭に出す）
-  const toggleBar=`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--sur2);border-bottom:1px solid var(--brd);font-size:12px">
-    <span style="color:var(--mu)">${showRetired?`退会者を含む全${db.users.length}名を表示中（うち退会${retiredCount}名）`:`在籍中の利用者のみ表示中${retiredCount>0?`（退会者${retiredCount}名は非表示）`:''}`}</span>
+  // 退会者表示トグルUI
+  const toggleBar=`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;font-size:12px;flex-shrink:0">
+    <span style="color:var(--mu)">${q?`「${q}」の検索結果：${visibleUsers.length}名`:showRetired?`全${db.users.length}名（退会${retiredCount}名含む）`:`在籍${visibleUsers.length}名${retiredCount>0?`（退会者${retiredCount}名は非表示）`:''}`}</span>
     <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
       <input type="checkbox" id="toggle-retired-chk" ${showRetired?'checked':''} onchange="toggleShowRetired(this.checked)">
       <span>退会者も表示する</span>
@@ -945,7 +959,8 @@ function renderUsers() {
   </div>`;
 
   if(!visibleUsers.length){
-    el.innerHTML=toggleBar+'<div style="padding:20px;text-align:center;font-size:12px;color:var(--mu)">表示できる利用者がいません</div>';
+    const msg=q?`「${q}」に一致する利用者が見つかりません`:'表示できる利用者がいません';
+    el.innerHTML=toggleBar+`<div style="padding:24px;text-align:center;font-size:12px;color:var(--mu)">${msg}</div>`;
     return;
   }
   el.innerHTML=toggleBar+visibleUsers.map(u=>{
@@ -961,9 +976,11 @@ function renderUsers() {
     </select>`:'';
     const retiredStyle=u.retired?'background:#f3f4f6;opacity:0.75':'';
     const retiredBadge=u.retired?'<span class="badge" style="background:#e5e7eb;color:#6b7280;border:1px solid #d1d5db;margin-left:6px">退会済</span>':'';
+    // 検索ワードをハイライト
+    const hl=(str)=>q?str.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),'<mark style="background:#fef08a;border-radius:2px;padding:0 1px">$1</mark>'):str;
     return `<div class="urow" style="${retiredStyle}">
       <div class="uav" style="width:32px;height:32px;font-size:10px;${u.retired?'filter:grayscale(1)':''}">${u.name.slice(0,2)}</div>
-      <div style="flex:1;min-width:120px"><div class="urow-name">${u.name}${retiredBadge}</div><div class="urow-meta">${u.kana||''}${u.careLevel?' · '+u.careLevel:''} · 記録${(db.records[u.id]||[]).length}件</div></div>
+      <div style="flex:1;min-width:120px"><div class="urow-name">${hl(u.name)}${retiredBadge}</div><div class="urow-meta">${hl(u.kana||'')}${u.careLevel?' · '+u.careLevel:''} · 記録${(db.records[u.id]||[]).length}件</div></div>
       <div style="display:flex;gap:5px;flex-shrink:0">
         <button class="btn bs bxs" onclick="selectUser('${u.id}');showV('record')">記録</button>
         <button class="btn bs bxs" onclick="editUser('${u.id}')">編集</button>
