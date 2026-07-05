@@ -50,15 +50,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Hiragino San
 .sb-foot{padding:10px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:5px}
 
 /* buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:6px 12px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .12s;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .12s;white-space:nowrap;min-height:38px}
 .btn svg{width:13px;height:13px;flex-shrink:0}
 .bp{background:var(--ac);color:#fff;border-color:var(--ac)}.bp:hover{background:#1d4ed8}
 .bs{background:#fff;color:var(--tx);border-color:var(--brd2)}.bs:hover{background:var(--bg)}
 .bg{background:var(--gn2);color:var(--gn);border-color:var(--gn3)}.bg:hover{background:#dcfce7}
 .br{background:var(--rd2);color:var(--rd);border-color:#fca5a5}.br:hover{background:#fee2e2}
 .ba{background:var(--am2);color:var(--am);border-color:var(--am3)}.ba:hover{background:#fef3c7}
-.bfull{width:100%}.bxs{padding:3px 8px;font-size:11px}
-.ibt{width:28px;height:28px;border-radius:var(--r);border:1px solid var(--brd);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--mu);transition:all .1s;flex-shrink:0}
+.bfull{width:100%}.bxs{padding:6px 12px;font-size:12px;min-height:34px}
+.ibt{width:36px;height:36px;border-radius:var(--r);border:1px solid var(--brd);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--mu);transition:all .1s;flex-shrink:0}
 .ibt:hover{background:var(--bg);color:var(--tx)}
 .ibt:disabled{opacity:.4;cursor:default}
 
@@ -138,9 +138,9 @@ textarea{resize:vertical;min-height:60px}
 
 /* menu checkboxes */
 .cbgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
-.cbi{display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 7px;border-radius:6px;border:1px solid var(--brd);transition:all .1s;user-select:none}
+.cbi{display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);transition:all .1s;user-select:none;min-height:40px}
 .cbi:hover{border-color:var(--ac);background:var(--ac2)}.cbi.on{border-color:var(--ac);background:var(--ac2)}
-.cbi input{width:13px;height:13px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
+.cbi input{width:18px;height:18px;accent-color:var(--ac);cursor:pointer;flex-shrink:0;pointer-events:auto;touch-action:manipulation}
 .cbi.pinned{border-color:#f59e0b;background:#fffbeb}
 .cbi.pinned label{color:#92400e;font-weight:600}
 .cbi.pinned input{accent-color:#f59e0b}
@@ -410,12 +410,12 @@ textarea{resize:vertical;min-height:60px}
       <div class="fs">
         <div class="fst">バイタルサイン</div>
         <div class="fr fr3">
-          <div class="fg"><div class="fl">収縮期血圧 <em>mmHg</em></div><input type="number" id="r-bps" placeholder="120"></div>
-          <div class="fg"><div class="fl">拡張期血圧 <em>mmHg</em></div><input type="number" id="r-bpd" placeholder="80"></div>
-          <div class="fg"><div class="fl">脈拍 <em>回/分</em></div><input type="number" id="r-pulse" placeholder="72"></div>
+          <div class="fg"><div class="fl">収縮期血圧 <em>mmHg</em></div><input type="number" id="r-bps" placeholder="120" inputmode="numeric" tabindex="1" onkeydown="vitNext(event,'r-bpd')"></div>
+          <div class="fg"><div class="fl">拡張期血圧 <em>mmHg</em></div><input type="number" id="r-bpd" placeholder="80"  inputmode="numeric" tabindex="2" onkeydown="vitNext(event,'r-pulse')"></div>
+          <div class="fg"><div class="fl">脈拍 <em>回/分</em></div><input type="number" id="r-pulse" placeholder="72"  inputmode="numeric" tabindex="3" onkeydown="vitNext(event,'r-temp')"></div>
         </div>
         <div class="fr fr2">
-          <div class="fg"><div class="fl">体温 <em>℃</em></div><input type="number" id="r-temp" placeholder="36.5" step="0.1"></div>
+          <div class="fg"><div class="fl">体温 <em>℃</em></div><input type="number" id="r-temp" placeholder="36.5" step="0.1" inputmode="decimal" tabindex="4" onkeydown="vitNext(event,'r-staff')"></div>
         </div>
       </div>
       <div class="fs">
@@ -643,7 +643,7 @@ function renderSB() {
   G('sb-today').textContent=`${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日（${DN[today.getDay()]}）`;
   const body=G('sb-body'); let html='';
   const showRetired=localStorage.getItem('ds3_show_retired')==='1';
-  const allUsers=db.users.filter(u=>showRetired || !u.retired);
+  const allUsers=sortByKana(db.users.filter(u=>showRetired || !u.retired));
   const inGrp=new Set();
   if(db.groups.length) {
     html+='<div class="sb-lbl">グループ</div>';
@@ -843,22 +843,31 @@ function togPin(mid, e) {
 function buildMenuCbs(menuState) {
   const pinned=getPinned();
   G('menu-cbs').innerHTML=(cfg.menuItems||[]).map(m=>{
-    // 固定チェックされていれば強制ON
     const isPinned=!!pinned[m.id];
     const on=isPinned || (menuState&&(menuState[m.id]===true||menuState[m.id]==='true'));
-    return `<div class="cbi ${on?'on':''} ${isPinned?'pinned':''}" id="cb-${m.id}" onclick="togCb('${m.id}')">
-      <input type="checkbox" id="cbi-${m.id}" ${on?'checked':''}${isPinned?' data-pinned="1"':''}>
-      <label for="cbi-${m.id}">${m.name}</label>
+    return `<div class="cbi ${on?'on':''} ${isPinned?'pinned':''}" id="cb-${m.id}"
+      onclick="togCb('${m.id}')">
+      <input type="checkbox" id="cbi-${m.id}" ${on?'checked':''}${isPinned?' data-pinned="1"':''}
+        style="width:20px;height:20px;flex-shrink:0;pointer-events:none;accent-color:var(--ac)">
+      <label for="cbi-${m.id}" style="flex:1;pointer-events:none">${m.name}</label>
       <button id="pin-${m.id}" onclick="togPin('${m.id}',event)" title="固定チェック（次回以降も常にON）"
-        style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 2px;opacity:${isPinned?'1':'0.35'};flex-shrink:0">${isPinned?'📌':'📍'}</button>
+        style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;min-width:28px;min-height:28px;opacity:${isPinned?'1':'0.35'};flex-shrink:0">${isPinned?'📌':'📍'}</button>
     </div>`;
   }).join('');
 }
 function togCb(mid) {
   const pinned=getPinned();
-  if(pinned[mid]) return; // 固定チェック中は手動解除不可（ピンを外す操作で解除）
+  if(pinned[mid]) return;
   const cb=G(`cbi-${mid}`); cb.checked=!cb.checked;
   G(`cb-${mid}`).classList.toggle('on',cb.checked);
+}
+// バイタル入力でEnter/次へキーを押したら次のフィールドへ移動
+function vitNext(e, nextId) {
+  if(e.key==='Enter'||e.key==='Next'||e.key==='Go') {
+    e.preventDefault();
+    const next=G(nextId);
+    if(next){ next.focus(); next.select&&next.select(); }
+  }
 }
 function fillStaff(val='') {
   G('r-staff').innerHTML='<option value="">選択なし</option>'+(cfg.staff||[]).map(s=>`<option ${s===val?'selected':''}>${s}</option>`).join('');
@@ -942,11 +951,11 @@ function renderUsers() {
   const showRetired=localStorage.getItem('ds3_show_retired')==='1';
   // 検索キーワードでフィルタ
   const q=(G('user-search')?.value||'').trim().toLowerCase();
-  const visibleUsers=db.users.filter(u=>{
+  const visibleUsers=sortByKana(db.users.filter(u=>{
     if(!showRetired && u.retired) return false;
     if(!q) return true;
     return (u.name||'').toLowerCase().includes(q) || (u.kana||'').toLowerCase().includes(q);
-  });
+  }));
   const retiredCount=db.users.filter(u=>u.retired).length;
 
   // 退会者表示トグルUI
@@ -1057,11 +1066,16 @@ function renderGroups() {
     el.innerHTML='<div style="text-align:center;padding:20px;font-size:12px;color:var(--mu)">グループが登録されていません<br><br><button class="btn bp bxs" onclick="openAddGroup()">＋ グループを追加</button></div>';
     return;
   }
-  el.innerHTML=db.groups.map(g=>{
+  el.innerHTML=db.groups.map((g,gi)=>{
     const members=(g.members||[]).map(uid=>db.users.find(u=>u.id===uid)).filter(Boolean);
-    const unassigned=db.users.filter(u=>!(g.members||[]).includes(u.id));
-    return `<div class="gmc">
+    const unassigned=sortByKana(db.users.filter(u=>!(g.members||[]).includes(u.id)));
+    return `<div class="gmc" draggable="true" data-id="${g.id}"
+      ondragstart="dragStart(event,'${g.id}')"
+      ondragover="dragOver(event)"
+      ondragleave="dragLeave(event)"
+      ondrop="dragDrop(event,'group')">
       <div class="gmch">
+        <span class="drag-handle" style="font-size:16px">☰</span>
         <div class="gmc-dot" style="background:${g.color}"></div>
         <div class="gmc-name">${g.name}</div>
         <span style="font-size:11px;color:var(--mu)">${g.slot==='am'?'午前':g.slot==='pm'?'午後':'時間指定なし'}</span>
@@ -1179,10 +1193,15 @@ function renderSettings() {
 
     <!-- 経過観察定型文 -->
     <div class="setcard">
-      <h3>経過観察 定型文</h3>
+      <h3>経過観察 定型文 <span style="font-size:10px;font-weight:400;color:var(--mu)">☰ ドラッグで並べ替え可</span></h3>
       <p style="font-size:11px;color:var(--mu);margin-bottom:8px">記録入力時のプルダウンに表示されます。直接編集・追加・削除できます。</p>
-      <div class="set-list" id="tmpl-list">
-        ${(cfg.noteTemplates||[]).map((t,i)=>`<div class="set-item" style="align-items:flex-start">
+      <div class="set-list" id="tmpl-sort-list">
+        ${(cfg.noteTemplates||[]).map((t,i)=>`<div class="set-item" style="align-items:flex-start" draggable="true" data-id="${t.id}"
+          ondragstart="dragStart(event,'${t.id}')"
+          ondragover="dragOver(event)"
+          ondragleave="dragLeave(event)"
+          ondrop="dragDrop(event,'tmpl')">
+          <span class="drag-handle" style="margin-top:6px">☰</span>
           <textarea rows="2" style="flex:1;font-size:12px;resize:vertical;min-height:40px" onchange="editTemplate('${t.id}',this.value)">${t.text}</textarea>
           <button class="btn br bxs" style="flex-shrink:0;margin-top:2px" onclick="delTemplate('${t.id}')">削除</button>
         </div>`).join('')}
@@ -1309,13 +1328,29 @@ function dragDrop(e, listKey) {
     const fromIdx=arr.findIndex(m=>m.id===_dragId);
     const toIdx=arr.findIndex(m=>m.id===toId);
     if(fromIdx<0||toIdx<0) { _dragId=null; return; }
-    // 並べ替え
     const [moved]=arr.splice(fromIdx,1);
     arr.splice(toIdx,0,moved);
     cfg.menuItems=arr;
-    saveLocal();
-    renderSettings();
-    saveMenuOrder();
+    saveLocal(); renderSettings(); saveMenuOrder();
+  } else if(listKey==='group') {
+    const arr=db.groups;
+    const fromIdx=arr.findIndex(g=>g.id===_dragId);
+    const toIdx=arr.findIndex(g=>g.id===toId);
+    if(fromIdx<0||toIdx<0) { _dragId=null; return; }
+    const [moved]=arr.splice(fromIdx,1);
+    arr.splice(toIdx,0,moved);
+    db.groups=arr;
+    saveLocal(); renderSB(); renderGroups();
+    toast('グループの並び順を変更しました');
+  } else if(listKey==='tmpl') {
+    const arr=cfg.noteTemplates;
+    const fromIdx=arr.findIndex(t=>t.id===_dragId);
+    const toIdx=arr.findIndex(t=>t.id===toId);
+    if(fromIdx<0||toIdx<0) { _dragId=null; return; }
+    const [moved]=arr.splice(fromIdx,1);
+    arr.splice(toIdx,0,moved);
+    cfg.noteTemplates=arr;
+    saveLocal(); renderSettings(); saveTmplOrder();
   }
   _dragId=null;
 }
@@ -1323,14 +1358,23 @@ function dragDrop(e, listKey) {
 // 並べ替え後の順序をGASに保存（全件upsert）
 let _menuOrderTimer=null;
 function saveMenuOrder() {
-  // 連続操作のdebounce（1秒後にまとめて送信）
   clearTimeout(_menuOrderTimer);
   _menuOrderTimer=setTimeout(async ()=>{
-    // GASのmenu_itemsシートをsortOrder付きで全件上書き
     for(let i=0;i<cfg.menuItems.length;i++){
       await gas('upsertMenuItem',{item:{...cfg.menuItems[i],sortOrder:i}});
     }
     toast('並び順を保存しました');
+  },1000);
+}
+
+let _tmplOrderTimer=null;
+function saveTmplOrder() {
+  clearTimeout(_tmplOrderTimer);
+  _tmplOrderTimer=setTimeout(async ()=>{
+    for(let i=0;i<cfg.noteTemplates.length;i++){
+      await gas('upsertTemplate',{item:{...cfg.noteTemplates[i],sortOrder:i}});
+    }
+    toast('定型文の並び順を保存しました');
   },1000);
 }
 function addTemplate() {
@@ -1664,6 +1708,15 @@ function buildPDF(dataURLs,filename) {
 // ══════════════════════════════════════════════
 function G(id){return document.getElementById(id);}
 function fmtD(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+
+// 利用者を五十音順（読み仮名優先、なければ名前）でソート
+function sortByKana(users) {
+  return [...users].sort((a,b)=>{
+    const ka=(a.kana||a.name||'').toLowerCase();
+    const kb=(b.kana||b.name||'').toLowerCase();
+    return ka.localeCompare(kb,'ja');
+  });
+}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2800);}
@@ -1731,8 +1784,10 @@ function nowTimeStr(){
     if(lastOver&&lastOver!==touchDragging){
       const toId=lastOver.dataset.id;
       lastOver.classList.remove('drag-over');
-      // リストキーを判断（menu-sort-list内かどうか）
-      if(closest(touchDragging,'#menu-sort-list')) dragDrop({preventDefault:()=>{},currentTarget:{dataset:{id:toId},classList:{remove:()=>{}}}},'menu');
+      const fakeEvt={preventDefault:()=>{},currentTarget:{dataset:{id:toId},classList:{remove:()=>{}}}};
+      if(closest(touchDragging,'#menu-sort-list'))      dragDrop(fakeEvt,'menu');
+      else if(closest(touchDragging,'#tmpl-sort-list')) dragDrop(fakeEvt,'tmpl');
+      else if(closest(touchDragging,'.grp-mgmt, #grp-mgmt')) dragDrop(fakeEvt,'group');
     }
     touchDragging=null; lastOver=null; _dragId=null;
   });
