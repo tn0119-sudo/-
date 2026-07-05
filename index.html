@@ -1140,6 +1140,7 @@ function renderSettings() {
           <select id="archive-year-sel"></select>
         </div>
         <button class="btn ba bxs" onclick="doArchiveYear()">この年をアーカイブする</button>
+        <button class="btn bpu bxs" onclick="doRestoreYear()">この年を復元する</button>
         <button class="btn bs bxs" onclick="loadArchiveSummary()">最新状態を取得</button>
       </div>
       <div id="archive-result" style="margin-top:8px;font-size:11px"></div>
@@ -1246,7 +1247,7 @@ async function loadArchiveSummary() {
       </div>`;
   }
 
-  sel.innerHTML=years.map(y=>`<option value="${y}" ${archivedYears.has(y)?'data-archived="1"':''}>${y}年${archivedYears.has(y)?'（再アーカイブ）':''}</option>`).join('')
+  sel.innerHTML=years.map(y=>`<option value="${y}" ${archivedYears.has(y)?'data-archived="1"':''}>${y}年${archivedYears.has(y)?'　✓アーカイブ済':'　（未アーカイブ）'}</option>`).join('')
     || '<option value="">対象なし</option>';
 }
 
@@ -1273,6 +1274,42 @@ async function doArchiveYear() {
   toast(r.message||'アーカイブが完了しました');
 
   // ローカルキャッシュも同期し直す（アーカイブされた分はdb.recordsから消える想定）
+  await syncNow(true);
+  loadArchiveSummary();
+}
+
+async function doRestoreYear() {
+  const sel=G('archive-year-sel');
+  const year=sel?.value;
+  if(!year){ toast('対象年がありません'); return; }
+
+  const isArchived=sel.selectedOptions[0]?.dataset.archived==='1';
+  if(!isArchived){
+    toast(`${year}年はまだアーカイブされていません`);
+    return;
+  }
+
+  if(!confirm(
+    `${year}年のアーカイブデータをrecordsシートへ復元します。\n` +
+    `・復元後は通常の記録一覧に表示されます\n` +
+    `・アーカイブシート（records_archive_${year}）はそのまま残ります\n` +
+    `・確認が終わったら再度アーカイブしてください\n\n` +
+    `よろしいですか？`
+  )) return;
+
+  const resBox=G('archive-result');
+  if(resBox) resBox.innerHTML='<span style="color:var(--mu)">復元中…（件数によって数十秒かかる場合があります）</span>';
+
+  const r=await gas('restoreYear',{year});
+  if(!r){
+    if(resBox) resBox.innerHTML='<span style="color:var(--rd)">復元に失敗しました</span>';
+    toast('復元に失敗しました');
+    return;
+  }
+  if(resBox) resBox.innerHTML=`<span style="color:var(--pu)">✓ ${r.message}</span>`;
+  toast(r.message||'復元が完了しました');
+
+  // 同期してアプリに反映
   await syncNow(true);
   loadArchiveSummary();
 }
