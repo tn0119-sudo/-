@@ -648,7 +648,7 @@ function renderSB() {
   if(db.groups.length) {
     html+='<div class="sb-lbl">グループ</div>';
     db.groups.forEach(g=>{
-      const members=(g.members||[]).map(uid=>allUsers.find(u=>u.id===uid)).filter(Boolean);
+      const members=sortByKana((g.members||[]).map(uid=>allUsers.find(u=>u.id===uid)).filter(Boolean));
       (g.members||[]).forEach(uid=>inGrp.add(uid));
       const doneN=members.filter(u=>!u.retired&&todayRec(u.id)).length;
       const badge=doneN?`<span style="font-size:9px;background:var(--gn);color:#fff;border-radius:100px;padding:1px 5px">${doneN}</span>`:'';
@@ -1067,7 +1067,7 @@ function renderGroups() {
     return;
   }
   el.innerHTML=db.groups.map((g,gi)=>{
-    const members=(g.members||[]).map(uid=>db.users.find(u=>u.id===uid)).filter(Boolean);
+    const members=sortByKana((g.members||[]).map(uid=>db.users.find(u=>u.id===uid)).filter(Boolean));
     const unassigned=sortByKana(db.users.filter(u=>!(g.members||[]).includes(u.id)));
     return `<div class="gmc" draggable="true" data-id="${g.id}"
       ondragstart="dragStart(event,'${g.id}')"
